@@ -10,6 +10,9 @@ This project deals with the understanding and implementation of The Onion Routin
     - cell: Describing the Tor Cell(message) for communication between the nodes
     - onion_proxy: The client side of the Tor.
     - onion_router: The user process that will run on a tor node that wants to participate in the circuit.
+- There are also certain core modules that can be used across multiple higher level components
+    - connection: The module for maintaining code related to connection, sockets, circuits and stream. The onion proxy and router both the modules will use this.
+    - crypto: The module that is a wrapper created for use in the project
 - More modules will be added and the above organization of the code is subject to refactoring based on the progress of the project.
 
 # Coding conventions
