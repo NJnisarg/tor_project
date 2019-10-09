@@ -59,7 +59,7 @@ class CoreCryptoRSA:
 
 		try:
 			with open(pem_file, "rb") as key_file:
-				public_key = serialization.load_pem_public_key(
+				public_key = serialization.load_ssh_public_key(
 					key_file.read(),
 					backend=default_backend()
 				)
