@@ -1,7 +1,7 @@
 import csv
 from typing import List
-from connection.Node import Node
-from crypto.CoreCrypto import CoreCryptoRSA
+from connection.node import Node
+from crypto.core_crypto import CoreCryptoRSA
 from config.env_config import BASE_PROJECT_DIR
 
 
