@@ -1,9 +1,12 @@
 Internet Protocol(IP)
 
 Introduction
-An Internet Protocol address (IP address) is a numerical label assigned to each device connected to a computer network that uses the Internet Protocol for communication. This is the most commonly used protocol to communicate over networks and transfer data. An IP address serves two main functions: host or network interface identification and location addressing.
+An Internet Protocol address (IP address) is a numerical label assigned to each device connected to a computer network that uses the Internet Protocol for communication. This is the most commonly 
+used protocol to communicate over networks and transfer data. An IP address serves two main functions: host or network interface identification and location addressing.
 
-The Open Systems Interconnection model (OSI model) is a conceptual model that characterizes and standardizes the communication functions of a telecommunication or computing system without regard to its underlying internal structure and technologyInternet Protocol (IP) sits directly on top of layer 2, as one of the protocols in the network layer and is responsible for getting datagrams to their destination.The IP layer does not provide any type of flow-control or sequencing capabilities—that's left to the upper layers. We'll be using "datagram" to refer to an entire IP message, and "packet" to identify an individual IP packet.
+The Open Systems Interconnection model (OSI model) is a conceptual model that characterizes and standardizes the communication functions of a telecommunication or computing system without regard to its 
+underlying internal structure and technologyInternet Protocol (IP) sits directly on top of layer 2, as one of the protocols in the network layer and is responsible for getting datagrams to their 
+destination.The IP layer does not provide any type of flow-control or sequencing capabilities—that's left to the upper layers. We'll be using "datagram" to refer to an entire IP message, and "packet" to identify an individual IP packet.
 
 Types of IP addresses
 So far,there are two types of IP addresses.
@@ -13,7 +16,9 @@ So far,there are two types of IP addresses.
 
 IPV4
 	IPV4 is described in IETF publication RFC 791 (September 1981), replacing an earlier definition (RFC 760, January 1980).
-IPV4 is an unique 32 bit binary number assigned to device connected to internet,which may change over time. All the communication in the network belonging to that device happens with that particular IPV4 address only. This 32 bit number can be divided into four equal halves with 8 bits each to represent it as four decimal numbers seperated by dots, which is also called as dotted decimal representation.
+IPV4 is an unique 32 bit binary number assigned to device connected to internet,which may change over time. All the communication in the network belonging to that device happens with that particular 
+IPV4 address only. This 32 bit number can be divided into four equal halves with 8 bits each to represent it as four decimal numbers seperated by dots, which is also called as dotted decimal 
+representation.
 eg:192.0.0.1.
 	This IPV4 address was divided into two parts, namely Network id and Host id.
 The Network id was used to identify the netwoek to which the device was connected anf the Host id was used to identify the paerticular host. 
