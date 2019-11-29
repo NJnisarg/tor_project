@@ -3,6 +3,15 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 
+class CryptoConstants:
+	KEY_LEN = 16
+	DH_LEN = 128
+	DH_SEC_LEN = 40
+	PK_ENC_LEN = 128
+	PK_PAD_LEN = 42
+	HASH_LEN = 20
+
+
 class CoreCryptoRSA:
 	"""
 	This is the RSA core crypto module for the entire project. It behaves as a wrapper crypto primitives
@@ -81,3 +90,7 @@ class CoreCryptoRSA:
 		public_key = private_key.public_key()
 
 		return private_key, public_key
+
+	@staticmethod
+	def encrypt(payload: str, key: rsa.RSAPublicKey) -> str:
+		return ""

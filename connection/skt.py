@@ -18,13 +18,18 @@ class Skt:
 		self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.skt.bind((self.host, self.port))
 
-	def remote_connect(self, remote_host: str, remote_port: int):
+	def remote_connect(self, remote_host: str, remote_port: int) -> int:
 		"""
 		The method to connect to a remote socket
 		:param remote_host: The remote host ip to connect to
 		:param remote_port: The remote host port to connect to
+		:return err_code: 0 if no error and -1 if there is an error
 		"""
-		self.skt.connect((remote_host, remote_port))
+		try:
+			self.skt.connect((remote_host, remote_port))
+			return 0
+		except Exception as e:
+			return -1
 
 	def send_data(self, data: str):
 		"""
