@@ -27,6 +27,8 @@ class Circuit:
 		# First create a CREATE2 Cell.
 		create_data = {
 			'HTYPE': CellConstants.CREATE_HANDSHAKE_TYPE['TAP'],
+			'HLEN': CellConstants.TAP_C_HANDSHAKE_LEN,
+			'HDATA': ""
 
 		}
 		created_cell = Cell(self.get_rand_circ_id(), CellConstants.CMD_ENUM['CREATE2'], CellConstants.PAYLOAD_LEN, create_data)

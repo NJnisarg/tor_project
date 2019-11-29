@@ -1,8 +1,15 @@
 from crypto.core_crypto import CoreCryptoRSA
+from crypto.core_crypto import CryptoConstants as CC
 
 
 class CellConstants:
 	PAYLOAD_LEN = 509
+
+	@staticmethod
+	def CELL_LEN(v: int) -> int:
+		return 512 if v < 4 else 514
+
+	TAP_C_HANDSHAKE_LEN = CC.DH_LEN + CC.KEY_LEN + CC.PK_PAD_LEN
 
 	CREATE_HANDSHAKE_TYPE = {
 		'TAP': 0x0000,
