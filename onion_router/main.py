@@ -1,5 +1,7 @@
 import sys
+import json
 from node_directory_service.node_directory_service import NodeDirectoryService
+from connection.node import Node
 from connection.skt import Skt
 from circuit import Circuit
 from onion_router import OnionRouter
@@ -27,5 +29,5 @@ def main():
         print("Error accepting connection")
         exit(0)
     
-    data = or.skt.server_recv_data().decode()
-    or.process_cell(data)
+    cell = json.dumps(or.skt.server_recv_data().decode())
+    or.process_cell(cell)
