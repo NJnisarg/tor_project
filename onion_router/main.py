@@ -1,6 +1,5 @@
 import sys
 from node_directory_service.node_directory_service import NodeDirectoryService
-from connection.circuit import Circuit
 from connection.skt import Skt
 
 """

@@ -13,7 +13,7 @@ class Circuit:
 
 	def get_rand_circ_id(self) -> int:
 		"""
-		Returns a random circId for the circuit. Follows the Tor Spec to create the circId
+		Returns a random circId for the circuit. Follows the Tor Spec to create the circId section 5.1.1
 		:return: circId --> integer
 		"""
 		return 1
@@ -60,14 +60,15 @@ class Circuit:
 			'HDATA': h_data
 
 		}
-		create_cell = Cell(self.get_rand_circ_id(), CellConstants.CMD_ENUM['CREATE2'], CellConstants.PAYLOAD_LEN, create_data)
+		create_circ_id = self.get_rand_circ_id()
+		create_cell = Cell(create_circ_id, CellConstants.CMD_ENUM['CREATE2'], CellConstants.PAYLOAD_LEN, create_data)
 		self.skt.client_send_data(json.loads(create_cell.JSON_CELL))
 
 		# Process the reply of the CREATED2 cell and return the response code
 		created_cell = json.dumps(self.skt.client_recv_data())
 
 		# The cell is correctly structured
-		if created_cell['CIRCID'] == self.get_rand_circ_id() and created_cell['CMD'] == CellConstants.CMD_ENUM['CREATED2']:
+		if created_cell['CIRCID'] == create_circ_id and created_cell['CMD'] == CellConstants.CMD_ENUM['CREATED2']:
 			created_payload = created_cell['PAYLOAD']
 			gy = created_payload['HDATA']['Y']
 			gxy = gy  # use some function to compute the gxy here
