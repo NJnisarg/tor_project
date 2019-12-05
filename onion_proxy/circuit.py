@@ -1,7 +1,7 @@
 from typing import List
 from connection.node import Node
 from connection.skt import Skt
-from cell.cell import Cell, CellConstants, CreateCellPayload, CreatedCellPayload
+from cell.cell import Cell, CellConstants, CreateCellPayload, CreatedCellPayload, ExtendCellPayload
 from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
 
 
@@ -10,19 +10,22 @@ class Circuit:
 	The class representing the Circuit object for the Onion Proxy.
 	"""
 
-	def get_rand_circ_id(self) -> int:
+	@staticmethod
+	def get_rand_circ_id() -> int:
 		"""
 		Returns a random circId for the circuit. Follows the Tor Spec to create the circId section 5.1.1
 		:return: circId --> integer
 		"""
 		return 1
 
-	def __init__(self, node_container: List[Node], skt: Skt):
+	def __init__(self, node_container: List[Node], skt: Skt, circ_id: int):
 		"""
-
+		Constructor
+		:param circ_id: The circuit Id for the given circuit
 		:param node_container: The list of Node objects including the Client itself
 		:param skt: The Client's socket object. We will use this to connect to the nodes in the container
 		"""
+		self.circ_id = circ_id
 		self.node_container = node_container
 		self.skt = skt
 		self.session_key01 = None
@@ -59,7 +62,7 @@ class Circuit:
 		create_data = CreateCellPayload(CellConstants.CREATE_HANDSHAKE_TYPE['TAP'], CellConstants.TAP_C_HANDSHAKE_LEN, h_data)
 
 		# Getting the circ_id
-		create_circ_id = self.get_rand_circ_id()
+		create_circ_id = self.circ_id
 
 		# Making the create_cell
 		create_cell = Cell(create_circ_id, CellConstants.CMD_ENUM['CREATE2'], CellConstants.PAYLOAD_LEN, create_data)
@@ -85,3 +88,27 @@ class Circuit:
 		else:
 			self.skt.close()
 			return -1
+
+	def extend_circuit_hop_i(self, i) -> int:
+		# First create a CREATE2 Cell.
+
+		# Encrypting the g^x with the onion public key of the tor node 1
+		x, gx = CoreCryptoDH.generate_dh_priv_key()
+		h_data = CoreCryptoRSA.hybrid_encrypt(gx, self.node_container[1].onion_key_pub)
+
+		# Payload of the Extend Cell
+		NSPEC = 1
+		REMOTE_ADDR = {'address': self.node_container[i].host, 'port': self.node_container[i].port}
+		NSPEC_ARR = [ExtendCellPayload.LSTYPE['IPv4'], ExtendCellPayload.LSLEN['IPv4'], REMOTE_ADDR]
+		extend_data = ExtendCellPayload(NSPEC, NSPEC_ARR, CellConstants.CREATE_HANDSHAKE_TYPE['TAP'], CellConstants.TAP_C_HANDSHAKE_LEN, h_data)
+
+		# Getting the circ_id
+		create_circ_id = self.circ_id
+
+		# Making the create_cell
+		extend_cell = Cell(create_circ_id, CellConstants.CMD_ENUM['EXTEND2'], CellConstants.PAYLOAD_LEN, extend_data)
+
+		# Sending a JSON String down the socket
+		self.skt.client_send_data(extend_cell.net_serialize())
+
+		return 0

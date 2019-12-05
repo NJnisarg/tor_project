@@ -1,5 +1,5 @@
 import json
-from typing import Dict, Callable
+from typing import Dict, Callable, List
 from crypto.core_crypto import CryptoConstants as CC
 
 
@@ -186,7 +186,7 @@ class CreatedCellPayload:
 		:param dict_payload: The python dict that will be deserialized
 		:return: The CreateCellPayload Object
 		"""
-		return CreateCellPayload(dict_payload['HLEN'], dict_payload['HDATA'])
+		return CreatedCellPayload(dict_payload['HLEN'], dict_payload['HDATA'])
 
 	def net_serialize(self) -> str:
 		"""
@@ -202,4 +202,71 @@ class CreatedCellPayload:
 		:param net_payload: The JSON String from network
 		:return: A Payload object
 		"""
-		return CreateCellPayload.deserialize(json.loads(net_payload))
+		return CreatedCellPayload.deserialize(json.loads(net_payload))
+
+
+class ExtendCellPayload:
+
+	"""
+	The Class representing the Extend Cell's Payload Object
+	"""
+	LSTYPE = {
+		'IPv4': 0,
+		'IPv6': 1,
+		'LegacyId': 2,
+		'Ed25519Id': 3
+	}
+
+	LSLEN = {
+		'IPv4': 6,
+		'IPv6': 18,
+		'LegacyId': 20,
+		'Ed25519Id': 32
+	}
+
+	def __init__(self, NSPEC: int, NSPEC_ARR: List, HTYPE: int, HLEN: int, HDATA: str):
+		"""
+		Constructor
+		:param NSPEC: The number of Link Specifiers
+		:param NSPEC_ARR: The Array of size NSPEC. Contains those many Link Specifiers
+		:param HTYPE: The Handshake type. Its a value from the CREATE_HANDSHAKE_TYPE Dict defined in CellConstants
+		:param HLEN: The Length of the HDATA. For HTYPE = 'TAP', the value is TAP_C_HANDSHAKE_LEN defined in CellConstants
+		:param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
+		"""
+		self.NSPEC = NSPEC
+		self.NSPEC_ARR = NSPEC_ARR
+		self.HTYPE = HTYPE
+		self.HLEN = HLEN
+		self.HDATA = HDATA
+
+	def serialize(self) -> Dict:
+		"""
+		Serializes the payload as a python Dict
+		:return: Python Dict representation of Payload
+		"""
+		return {'NSPEC': self.NSPEC, 'NSPEC_ARR': self.NSPEC_ARR, 'HTYPE': self.HTYPE, 'HLEN': self.HLEN, 'HDATA': self.HDATA}
+
+	@staticmethod
+	def deserialize(dict_payload: Dict):
+		"""
+		Returns the Payload as a python Object
+		:param dict_payload: The python dict that will be deserialized
+		:return: The CreateCellPayload Object
+		"""
+		return ExtendCellPayload(dict_payload['NSPEC'], dict_payload['NSPEC_ARR'], dict_payload['HTYPE'], dict_payload['HLEN'], dict_payload['HDATA'])
+
+	def net_serialize(self) -> str:
+		"""
+		The JSON String serialized from the python dict representation of the Payload object
+		:return: JSON String
+		"""
+		return json.dumps(self.serialize())
+
+	@staticmethod
+	def net_deserialize(net_payload: str):
+		"""
+		The deserialized Payload object from a JSON String
+		:param net_payload: The JSON String from network
+		:return: A Payload object
+		"""
+		return ExtendCellPayload.deserialize(json.loads(net_payload))
