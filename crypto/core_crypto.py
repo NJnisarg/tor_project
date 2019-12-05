@@ -95,4 +95,19 @@ class CoreCryptoRSA:
 
 	@staticmethod
 	def hybrid_encrypt(message: str, pk: rsa.RSAPublicKey) -> str:
-		return ""
+		"""
+		This method is the hybrid encrypt outlined in the Tor spec 0.4 section
+		:param message: The message to be encrypted
+		:param pk: The RSA public to encrypt the message with
+		:return: The encrypted message (json string)
+		"""
+		return message
+
+	@staticmethod
+	def kdf_tor(message: str) -> str:
+		"""
+		This method is the key derivative outlined in the Tor spec section 5.2.1
+		:param message: The message to be used to carry out KDF
+		:return: The output
+		"""
+		return message

@@ -1,4 +1,3 @@
-from crypto.core_crypto import CoreCryptoRSA
 from crypto.core_crypto import CryptoConstants as CC
 
 
@@ -15,7 +14,6 @@ class CellConstants:
 		'TAP': 0x0000,
 		'reserved': 0x0001,
 		'ntor': 0x0002
-
 	}
 
 	CMD_ENUM = {
@@ -47,3 +45,4 @@ class Cell:
 		self.CMD = CMD
 		self.LENGTH = LENGTH
 		self.PAYLOAD = PAYLOAD
+		self.JSON_CELL = {'CIRCID': CIRCID, 'CMD': CMD, 'LENGTH': LENGTH, 'PAYLOAD': PAYLOAD}

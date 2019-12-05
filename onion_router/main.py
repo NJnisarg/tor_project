@@ -14,6 +14,4 @@ def main():
 	print("Node started!")
 	print("Creating an onion router")
 	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]]
-    skt = Skt(node.host, node.port)
-    
-
+	skt = Skt(node.host, node.port)

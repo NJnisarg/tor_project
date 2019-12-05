@@ -17,13 +17,18 @@ def main():
 	node_container = NodeDirectoryService.get_rand_three_nodes()
 	circuit = Circuit(node_container, skt)
 
-	# Open a TCP connection to all the nodes in the circuit
-	for idx, hop in enumerate(circuit.node_container):
-		err_code = circuit.open_connection(idx)
+	# Open a TCP connection to first node in the circuit
+	err_code = circuit.open_connection(1)
+	if err_code == 0:
+		print("Opened TCP Connection to the node")
+		# Now we call create a cell and send it
+		err_code = circuit.create_circuit_hop1()
 		if err_code == 0:
-			continue
+			print("Established the session key. DH Handshake successful")
 		else:
-			print("Error in connecting to the node:", idx)
-			exit(0)
+			print("could not establish the session key. Closed the TCP Connection with the node 1")
+	else:
+		print("Error in establishing TCP connection to the node:")
+		exit(0)
 
-	# Now setup the circuit incrementally with all the nodes
+# Now setup the circuit incrementally with all the nodes
