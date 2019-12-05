@@ -1,9 +1,8 @@
-import json
 from typing import List
 from connection.node import Node
 from connection.skt import Skt
-from cell.cell import Cell, CellConstants
-from crypto.core_crypto import CoreCryptoRSA
+from cell.cell import Cell, CellConstants, CreateCellPayload, CreatedCellPayload
+from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
 
 
 class Circuit:
@@ -53,26 +52,30 @@ class Circuit:
 		# First create a CREATE2 Cell.
 
 		# Encrypting the g^x with the onion public key of the tor node 1
-		h_data = CoreCryptoRSA.hybrid_encrypt("g^x", self.node_container[1].onion_key_pub)
-		create_data = {
-			'HTYPE': CellConstants.CREATE_HANDSHAKE_TYPE['TAP'],
-			'HLEN': CellConstants.TAP_C_HANDSHAKE_LEN,
-			'HDATA': h_data
+		x, gx = CoreCryptoDH.generate_dh_priv_key()
+		h_data = CoreCryptoRSA.hybrid_encrypt(gx, self.node_container[1].onion_key_pub)
 
-		}
+		# Payload of the Create Cell
+		create_data = CreateCellPayload(CellConstants.CREATE_HANDSHAKE_TYPE['TAP'], CellConstants.TAP_C_HANDSHAKE_LEN, h_data)
+
+		# Getting the circ_id
 		create_circ_id = self.get_rand_circ_id()
-		create_cell = Cell(create_circ_id, CellConstants.CMD_ENUM['CREATE2'], CellConstants.PAYLOAD_LEN, create_data)
-		self.skt.client_send_data(json.loads(create_cell.JSON_CELL))
 
-		# Process the reply of the CREATED2 cell and return the response code
-		created_cell = json.dumps(self.skt.client_recv_data())
+		# Making the create_cell
+		create_cell = Cell(create_circ_id, CellConstants.CMD_ENUM['CREATE2'], CellConstants.PAYLOAD_LEN, create_data)
+
+		# Sending a JSON String down the socket
+		self.skt.client_send_data(create_cell.net_serialize())
+
+		# Get the created cell in response and convert it to python Cell Object
+		created_cell = Cell.net_deserialize(str(self.skt.client_recv_data()), CreatedCellPayload.deserialize)
 
 		# The cell is correctly structured
-		if created_cell['CIRCID'] == create_circ_id and created_cell['CMD'] == CellConstants.CMD_ENUM['CREATED2']:
-			created_payload = created_cell['PAYLOAD']
-			gy = created_payload['HDATA']['Y']
-			gxy = gy  # use some function to compute the gxy here
-			if created_payload['HDATA']['KEY_DER'] == CoreCryptoRSA.kdf_tor(gxy):
+		if created_cell.CIRCID == create_circ_id and created_cell.CMD == CellConstants.CMD_ENUM['CREATED2']:
+			created_h_data_dict = created_cell.PAYLOAD.extract_from_h_data()
+			gy = created_h_data_dict['gy']
+			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
+			if created_h_data_dict['KH'] == CoreCryptoRSA.kdf_tor(gxy):
 				print("Handshake successful!")
 				self.session_key01 = gxy
 				return 0

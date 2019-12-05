@@ -111,3 +111,14 @@ class CoreCryptoRSA:
 		:return: The output
 		"""
 		return message
+
+
+class CoreCryptoDH:
+
+	@staticmethod
+	def generate_dh_priv_key() -> (str, str):
+		return "x", "g^x"
+
+	@staticmethod
+	def compute_dh_shared_key(gy: str, x: str) -> str:
+		return "gxy"
