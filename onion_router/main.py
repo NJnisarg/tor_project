@@ -17,11 +17,11 @@ def main():
 	print("Node started!")
 	print("Creating an onion router")
 	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]] 
-    or = OnionRouter(node)
+    onion_router = OnionRouter(node)
 
-    or.listen()
-    or.accept()
+    onion_router.listen()
+    onion_router.accept()
 
-    or.circuits_list[0].create_circuit()
+    onion_router.circuits_list[0].create_circuit()
 
     print("Circuit ready")
