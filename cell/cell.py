@@ -1,6 +1,7 @@
 import json
 from typing import Dict, Callable, List
-from crypto.core_crypto import CryptoConstants as CC
+from crypto.core_crypto import CryptoConstants as CC, CoreCryptoDH, CoreCryptoRSA
+from cell.control_cell import LinkSpecifier, TapCHData, TapSHData
 from cell.control_cell import TapSHData, TapCHData
 
 
@@ -40,7 +41,7 @@ class Cell:
 		"""
 		return 512 if v < 4 else 514
 
-	def __init__(self, CIRCID: int, CMD: int, LENGTH: int, PAYLOAD):
+	def __init__(self, CIRCID: int=None, CMD: int=None, LENGTH: int=None, PAYLOAD=None):
 		"""
 		Constructor
 		:param CIRCID: The circuit id
@@ -67,6 +68,39 @@ class Cell:
 	def net_deserialize(net_cell: str, payload_deserializer_arr: List[Callable]=None):
 		return Cell.deserialize(json.loads(net_cell), payload_deserializer_arr)
 
+	def build_create_cell(self, handshake_type: str, cell_ver: int, circ_id: int, onion_key) -> (str, str):
+		x, gx = CoreCryptoDH.generate_dh_priv_key()
+		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
+		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type], CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
+
+		self.CIRCID = circ_id
+		self.CMD = Cell.CMD_ENUM['CREATE2']
+		self.LENGTH = Cell.CELL_LEN(cell_ver)
+		self.PAYLOAD = create_cell_payload
+
+		return x, gx
+
+	def build_created_cell(self):
+		return None
+
+	def build_extend_cell(self, handshake_type: str, cell_ver: int, circ_id: int, onion_key, addr, port, nspec, ls_type):
+		# Encrypting the g^x with the onion public key of the tor node i
+		x, gx = CoreCryptoDH.generate_dh_priv_key()
+		h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
+
+		REMOTE_ADDR = {'address': addr, 'port': port}
+		NSPEC_ARR = [LinkSpecifier(LinkSpecifier.LSTYPE[ls_type], LinkSpecifier.LSLEN[ls_type], json.dumps(REMOTE_ADDR))]
+		extend_data = ExtendCellPayload(nspec, NSPEC_ARR, CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type], CreateCellPayload.TAP_C_HANDSHAKE_LEN, h_data)
+
+		self.CIRCID = circ_id
+		self.CMD = Cell.CMD_ENUM['EXTEND2']
+		self.LENGTH = Cell.CELL_LEN(cell_ver)
+		self.PAYLOAD = extend_data
+		return x, gx
+
+	def build_extended_cell(self):
+		return None
+
 
 class CreateCellPayload:
 
@@ -81,7 +115,11 @@ class CreateCellPayload:
 		'ntor': 0x0002
 	}
 
-	def __init__(self, HTYPE: int, HLEN: int, HDATA):
+	CREATE_HANDSHAKE_LEN = {
+		'TAP': TAP_C_HANDSHAKE_LEN
+	}
+
+	def __init__(self, HTYPE: int=None, HLEN: int=None, HDATA=None):
 		"""
 		Constructor
 		:param HTYPE: The Handshake type. Its a value from the CREATE_HANDSHAKE_TYPE Dict defined in CellConstants
@@ -115,7 +153,7 @@ class CreatedCellPayload:
 
 	TAP_S_HANDSHAKE_LEN = CC.DH_LEN + CC.HASH_LEN
 
-	def __init__(self, HLEN: int, HDATA):
+	def __init__(self, HLEN: int=None, HDATA=None):
 		"""
 		Constructor
 		:param HLEN: The Length of the HDATA. For HTYPE = 'TAP', the value is TAP_S_HANDSHAKE_LEN defined in CellConstants
@@ -148,21 +186,8 @@ class ExtendCellPayload:
 	"""
 	The Class representing the Extend Cell's Payload Object
 	"""
-	LSTYPE = {
-		'IPv4': 0,
-		'IPv6': 1,
-		'LegacyId': 2,
-		'Ed25519Id': 3
-	}
 
-	LSLEN = {
-		'IPv4': 6,
-		'IPv6': 18,
-		'LegacyId': 20,
-		'Ed25519Id': 32
-	}
-
-	def __init__(self, NSPEC: int, NSPEC_ARR: List, HTYPE: int, HLEN: int, HDATA):
+	def __init__(self, NSPEC: int=None, NSPEC_ARR: List=None, HTYPE: int=None, HLEN: int=None, HDATA=None):
 		"""
 		Constructor
 		:param NSPEC: The number of Link Specifiers

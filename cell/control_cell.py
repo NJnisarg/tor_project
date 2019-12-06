@@ -7,7 +7,7 @@ class TapCHData:
 	The Object representing the TAP Handshake's client data
 	"""
 
-	def __init__(self, PADDING: str, SYMKEY: str, GX1:str, GX2: str):
+	def __init__(self, PADDING: str=None, SYMKEY: str=None, GX1:str=None, GX2: str=None):
 		"""
 		Constructor
 		:param PADDING: PK_PAD_LEN size of padding
@@ -40,7 +40,7 @@ class TapSHData:
 	The Object representing the TAP Handshake's server data
 	"""
 
-	def __init__(self, GY: str, KH: str):
+	def __init__(self, GY: str=None, KH: str=None):
 		"""
 		Constructor
 		:param GY: The g^y part of the DH Handshake
@@ -69,7 +69,21 @@ class LinkSpecifier:
 	The Object that represents the Link specifier struct in the extend cell of Tor
 	"""
 
-	def __init__(self, LSTYPE: int, LSLEN: int, LSPEC: str):
+	LSTYPE = {
+		'IPv4': 0,
+		'IPv6': 1,
+		'LegacyId': 2,
+		'Ed25519Id': 3
+	}
+
+	LSLEN = {
+		'IPv4': 6,
+		'IPv6': 18,
+		'LegacyId': 20,
+		'Ed25519Id': 32
+	}
+
+	def __init__(self, LSTYPE: int=None, LSLEN: int=None, LSPEC: str=None):
 		"""
 		Constructor
 		:param LSTYPE: The Link specifier Type

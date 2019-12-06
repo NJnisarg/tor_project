@@ -56,15 +56,9 @@ class Circuit:
 		"""
 		# First create a CREATE2 Cell.
 
-		# Encrypting the g^x with the onion public key of the tor node 1
-		x, gx = CoreCryptoDH.generate_dh_priv_key()
-		h_data = CoreCryptoRSA.hybrid_encrypt(gx, self.node_container[1].onion_key_pub)
-
-		# Payload of the Create Cell
-		create_data = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE['TAP'], CreateCellPayload.TAP_C_HANDSHAKE_LEN, h_data)
-
 		# Making the create_cell
-		create_cell = Cell(self.circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_data)
+		create_cell = Cell()
+		x, gx = create_cell.build_create_cell('TAP', 3, self.circ_id, self.node_container[1].onion_key_pub)
 
 		# Sending a JSON String down the socket
 		self.skt.client_send_data(create_cell.net_serialize())
@@ -96,18 +90,8 @@ class Circuit:
 		"""
 		# First create a EXTEND2 Cell.
 
-		# Encrypting the g^x with the onion public key of the tor node i
-		x, gx = CoreCryptoDH.generate_dh_priv_key()
-		h_data = CoreCryptoRSA.hybrid_encrypt(gx, self.node_container[i].onion_key_pub)
-
-		# Payload of the Extend Cell
-		NSPEC = 1
-		REMOTE_ADDR = {'address': self.node_container[i].host, 'port': self.node_container[i].port}
-		NSPEC_ARR = [LinkSpecifier(ExtendCellPayload.LSTYPE['IPv4'], ExtendCellPayload.LSLEN['IPv4'], json.dumps(REMOTE_ADDR))]
-		extend_data = ExtendCellPayload(NSPEC, NSPEC_ARR, CreateCellPayload.CREATE_HANDSHAKE_TYPE['TAP'], CreateCellPayload.TAP_C_HANDSHAKE_LEN, h_data)
-
-		# Making the create_cell
-		extend_cell = Cell(self.circ_id, Cell.CMD_ENUM['EXTEND2'], Cell.PAYLOAD_LEN, extend_data)
+		extend_cell = Cell()
+		x, gx = extend_cell.build_extend_cell('TAP', 3, self.circ_id, self.node_container[i].onion_key_pub, self.node_container[i].host, self.node_container[i].port, 1, 'IPv4')
 
 		# Sending a JSON String down the socket
 		self.skt.client_send_data(extend_cell.net_serialize())
