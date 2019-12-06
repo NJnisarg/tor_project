@@ -1,7 +1,9 @@
+import json
 from typing import List
 from connection.node import Node
 from connection.skt import Skt
-from cell.cell import Cell, CellConstants, CreateCellPayload, CreatedCellPayload, ExtendCellPayload
+from cell.cell import Cell, CreateCellPayload, CreatedCellPayload, ExtendCellPayload
+from cell.control_cell import TapSHData, TapCHData, LinkSpecifier
 from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
 
 
@@ -46,7 +48,7 @@ class Circuit:
 
 	def create_circuit_hop1(self) -> int:
 		"""
-		The function to setup circuit with the first hop in the circuit. Created the CREATE/CREATE2 cell and sends it
+		The function to setup circuit with the first hop in the circuit. Creates the CREATE/CREATE2 cell and sends it
 		down the socket. It assumes that the open_connection was called on the first node and the socket is connected
 		to the first node
 		:return: Returns a status code. 0 --> Success DH Handshake and -1 --> Means error in processing the cell or the DH Handshake.
@@ -59,26 +61,23 @@ class Circuit:
 		h_data = CoreCryptoRSA.hybrid_encrypt(gx, self.node_container[1].onion_key_pub)
 
 		# Payload of the Create Cell
-		create_data = CreateCellPayload(CellConstants.CREATE_HANDSHAKE_TYPE['TAP'], CellConstants.TAP_C_HANDSHAKE_LEN, h_data)
-
-		# Getting the circ_id
-		create_circ_id = self.circ_id
+		create_data = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE['TAP'], CreateCellPayload.TAP_C_HANDSHAKE_LEN, h_data)
 
 		# Making the create_cell
-		create_cell = Cell(create_circ_id, CellConstants.CMD_ENUM['CREATE2'], CellConstants.PAYLOAD_LEN, create_data)
+		create_cell = Cell(self.circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_data)
 
 		# Sending a JSON String down the socket
 		self.skt.client_send_data(create_cell.net_serialize())
 
 		# Get the created cell in response and convert it to python Cell Object
-		created_cell = Cell.net_deserialize(str(self.skt.client_recv_data()), CreatedCellPayload.deserialize)
+		created_cell = Cell.net_deserialize(str(self.skt.client_recv_data()), [CreatedCellPayload.deserialize, TapSHData.deserialize])
 
 		# The cell is correctly structured
-		if created_cell.CIRCID == create_circ_id and created_cell.CMD == CellConstants.CMD_ENUM['CREATED2']:
-			created_h_data_dict = created_cell.PAYLOAD.extract_from_h_data()
-			gy = created_h_data_dict['gy']
+		if created_cell.CIRCID == self.circ_id and created_cell.CMD == Cell.CMD_ENUM['CREATED2']:
+			created_h_data = created_cell.PAYLOAD.HDATA
+			gy = created_h_data.GY
 			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
-			if created_h_data_dict['KH'] == CoreCryptoRSA.kdf_tor(gxy):
+			if created_h_data.KH == CoreCryptoRSA.kdf_tor(gxy):
 				print("Handshake successful!")
 				self.session_key01 = gxy
 				return 0
@@ -90,23 +89,25 @@ class Circuit:
 			return -1
 
 	def extend_circuit_hop_i(self, i) -> int:
-		# First create a CREATE2 Cell.
+		"""
+		The function to setup circuit with the ith hop in the circuit. Creates the EXTEND/EXTEND2 cell and sends it
+		down the socket.
+		:return: Returns a status code. 0 --> Success DH Handshake and -1 --> Means error in processing the cell or the DH Handshake.
+		"""
+		# First create a EXTEND2 Cell.
 
-		# Encrypting the g^x with the onion public key of the tor node 1
+		# Encrypting the g^x with the onion public key of the tor node i
 		x, gx = CoreCryptoDH.generate_dh_priv_key()
-		h_data = CoreCryptoRSA.hybrid_encrypt(gx, self.node_container[1].onion_key_pub)
+		h_data = CoreCryptoRSA.hybrid_encrypt(gx, self.node_container[i].onion_key_pub)
 
 		# Payload of the Extend Cell
 		NSPEC = 1
 		REMOTE_ADDR = {'address': self.node_container[i].host, 'port': self.node_container[i].port}
-		NSPEC_ARR = [ExtendCellPayload.LSTYPE['IPv4'], ExtendCellPayload.LSLEN['IPv4'], REMOTE_ADDR]
-		extend_data = ExtendCellPayload(NSPEC, NSPEC_ARR, CellConstants.CREATE_HANDSHAKE_TYPE['TAP'], CellConstants.TAP_C_HANDSHAKE_LEN, h_data)
-
-		# Getting the circ_id
-		create_circ_id = self.circ_id
+		NSPEC_ARR = [LinkSpecifier(ExtendCellPayload.LSTYPE['IPv4'], ExtendCellPayload.LSLEN['IPv4'], json.dumps(REMOTE_ADDR))]
+		extend_data = ExtendCellPayload(NSPEC, NSPEC_ARR, CreateCellPayload.CREATE_HANDSHAKE_TYPE['TAP'], CreateCellPayload.TAP_C_HANDSHAKE_LEN, h_data)
 
 		# Making the create_cell
-		extend_cell = Cell(create_circ_id, CellConstants.CMD_ENUM['EXTEND2'], CellConstants.PAYLOAD_LEN, extend_data)
+		extend_cell = Cell(self.circ_id, Cell.CMD_ENUM['EXTEND2'], Cell.PAYLOAD_LEN, extend_data)
 
 		# Sending a JSON String down the socket
 		self.skt.client_send_data(extend_cell.net_serialize())
