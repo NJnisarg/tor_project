@@ -1,6 +1,10 @@
 import sys
+import json
 from node_directory_service.node_directory_service import NodeDirectoryService
+from connection.node import Node
 from connection.skt import Skt
+from circuit import Circuit
+from onion_router import OnionRouter
 
 """
     This file contains the main starting point of the onion router.
@@ -12,5 +16,12 @@ from connection.skt import Skt
 def main():
 	print("Node started!")
 	print("Creating an onion router")
-	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]]
-	skt = Skt(node.host, node.port)
+	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]] 
+    or = OnionRouter(node)
+
+    or.listen()
+    or.accept()
+
+    or.circuits_list[0].create_circuit()
+
+    print("Circuit ready")

@@ -61,7 +61,7 @@ class TapSHData:
 
 	@staticmethod
 	def net_deserialize(net_payload: str, payload_deserializer_arr: List[Callable]=None):
-		return TapCHData.deserialize(json.loads(net_payload))
+		return TapSHData.deserialize(json.loads(net_payload))
 
 
 class LinkSpecifier:

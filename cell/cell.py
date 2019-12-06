@@ -1,6 +1,6 @@
 import json
 from typing import Dict, Callable, List
-from crypto.core_crypto import CryptoConstants as CC, CoreCryptoDH, CoreCryptoRSA
+from crypto.core_crypto import CryptoConstants as CC, CoreCryptoDH, CoreCryptoRSA, CoreCryptoHash
 from cell.control_cell import LinkSpecifier, TapCHData, TapSHData
 from cell.control_cell import TapSHData, TapCHData
 
@@ -80,8 +80,18 @@ class Cell:
 
 		return x, gx
 
-	def build_created_cell(self):
-		return None
+	def build_created_cell(self, cell_ver: int, circ_id: int, gx: str) -> (str, str):
+		y, gy = CoreCryptoDH.generate_dh_priv_key()
+		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
+		server_h_data = TapSHData(gy, CoreCryptoHash.compute_hash_derivative_key(gxy))
+		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
+
+		self.CIRCID = circ_id
+		self.CMD = Cell.CMD_ENUM['CREATED2']
+		self.LENGTH = Cell.CELL_LEN(cell_ver)
+		self.PAYLOAD = created_cell_payload
+
+		return gxy
 
 	def build_extend_cell(self, handshake_type: str, cell_ver: int, circ_id: int, onion_key, addr, port, nspec, ls_type):
 		# Encrypting the g^x with the onion public key of the tor node i
