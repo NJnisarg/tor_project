@@ -33,6 +33,6 @@ class OnionRouter:
             exit(0)
         cktid = self.get_rand_circ_id()
         ckt = Circuit(cktid, self.node, self.skt)
-        self.circuits_list.add(cktid, ckt)
+        self.circuits_list.append(ckt)
         return -1
 
