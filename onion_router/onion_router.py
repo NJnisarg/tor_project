@@ -3,7 +3,7 @@ from node_directory_service.node_directory_service import NodeDirectoryService
 from connection.node import Node
 from connection.skt import Skt
 from circuit import Circuit
-from cell.cell import Cell, CellConstants
+from cell.cell import Cell
 from crypto.core_crypto import CoreCryptoRSA
 
 

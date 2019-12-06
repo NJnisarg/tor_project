@@ -3,8 +3,8 @@ import json
 from node_directory_service.node_directory_service import NodeDirectoryService
 from connection.node import Node
 from connection.skt import Skt
-from circuit import Circuit
-from onion_router import OnionRouter
+from onion_router.circuit import Circuit
+from onion_router.onion_router import OnionRouter
 
 """
     This file contains the main starting point of the onion router.

@@ -1,7 +1,7 @@
 from typing import List
 from connection.node import Node
 from connection.skt import Skt
-from cell.cell import Cell, CellConstants, CreateCellPayload
+from cell.cell import Cell, CreateCellPayload
 from cell.control_cell import TapCHData, TapSHData
 import json
 from node_directory_service.node_directory_service import NodeDirectoryService
@@ -17,16 +17,16 @@ class Circuit:
 		self.routing_table = {}
 
 	def process_cell(self, cell: Cell):
-		if cell['CMD'] == CellConstants.CMD_ENUM['CREATE2']:
+		if cell.CMD == Cell.CMD_ENUM['CREATE2']:
 			self.process_create_cell(cell)
 
 	def process_create_cell(self, cell: Cell):
-		create_cell_circid = cell['CIRCID']
-		create_cell_cmd = cell['CMD']
-		create_cell_payload_length = cell['LENGTH']
-		create_cell_payload = cell['PAYLOAD']
+		create_cell_circid = cell.CIRCID
+		create_cell_cmd = cell.CMD
+		create_cell_payload_length = cell.LENGTH
+		create_cell_payload = cell.PAYLOAD
 
-		gx = CoreCryptoRSA.hybrid_decrypt(create_cell_payload['HDATA'], self.node.onion_key_pri)
+		gx = CoreCryptoRSA.hybrid_decrypt(create_cell_payload.HDATA, self.node.onion_key_pri)
 
 		self.send_created_cell(create_cell_circid, gx)
 
