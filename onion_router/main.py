@@ -16,18 +16,12 @@ from onion_router import OnionRouter
 def main():
 	print("Node started!")
 	print("Creating an onion router")
-	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]]
+	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]] 
     or = OnionRouter(node)
 
-    listen = or.skt.server_listen()
-    if listen != 0:
-        print("Error listening")
-        exit(0)
+    or.listen()
+    or.accept()
 
-    accept = or.skt.server_accept()
-    if accept != 0:
-        print("Error accepting connection")
-        exit(0)
-    
-    cell = json.dumps(or.skt.server_recv_data().decode())
-    or.process_cell(cell)
+    or.circuits_list[0].create_circuit()
+
+    print("Circuit ready")

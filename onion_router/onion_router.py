@@ -13,30 +13,26 @@ class OnionRouter:
         self.node = node
         self.skt = Skt(node.host, node.port)
         self.is_exit_node = is_exit_node
+        self.circuits_list = []
         self.routing_table = {}
 
-    def process_cell(self, cell):
+    def get_rand_circ_id(self) -> int:
+        return 1
 
-		if created_cell['CMD'] == CellConstants.CMD_ENUM['CREATE2']:
-            create_cell_circid = cell['CIRCID']
-            create_cell_cmd = cell['CMD']
-            create_cell_payload_length = cell['LENGTH']
-            create_cell_payload = cell['PAYLOAD']
+    def listen(self):
+        l = self.skt.server_listen()
+        if l != 0:
+            print("Error listening")
+            exit(0)
+        return -1
 
-            gx = CoreCryptoRSA.hybrid_encrypt(create_cell_payload['HDATA'], self.node.onion_key_pri)
-            gy = 'g^y'
-            gxy = gy # use some function to compute the gxy here
+    def accept(self):
+        a = self.skt.server_accept()
+        if a != 0:
+            print("Error accepting connection")
+            exit(0)
+        cktid = self.get_rand_circ_id()
+        ckt = Circuit(cktid, self.node, self.skt)
+        self.circuits_list.add(cktid, ckt)
+        return -1
 
-            or.routing_table.add(create_cell_circid, None)
-            circuit = Circuit(node, skt, gxy)
-
-            # Create a CREATED2 Cell.
-            created_data = {
-                'HLEN': CellConstants.TAP_C_HANDSHAKE_LEN,
-                'HDATA': {
-                    'Y' : gy,
-                    'KEY_DER' : CoreCryptoRSA.kdf_tor(gxy)
-                }
-            }
-            created_cell = Cell(circuit.get_rand_circ_id(), CellConstants.CMD_ENUM['CREATED2'], created_data, CellConstants.PAYLOAD_LEN)
-            self.skt.server_send_data(json.loads(created_cell.JSON_CELL))

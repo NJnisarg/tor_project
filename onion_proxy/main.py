@@ -14,8 +14,9 @@ def main():
 	skt = Skt('127.0.0.1', 4444)
 
 	print("Creating a circuit")
+	circ_id = Circuit.get_rand_circ_id()
 	node_container = NodeDirectoryService.get_rand_three_nodes()
-	circuit = Circuit(node_container, skt)
+	circuit = Circuit(node_container, skt, circ_id)
 
 	# Open a TCP connection to first node in the circuit
 	err_code = circuit.open_connection(1)

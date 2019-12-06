@@ -1,6 +1,7 @@
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from typing import Any
 
 
 class CryptoConstants:
@@ -94,7 +95,7 @@ class CoreCryptoRSA:
 		return private_key, public_key
 
 	@staticmethod
-	def hybrid_encrypt(message: str, pk: rsa.RSAPublicKey) -> str:
+	def hybrid_encrypt(message: str, pk: rsa.RSAPublicKey) -> Any:
 		"""
 		This method is the hybrid encrypt outlined in the Tor spec 0.4 section
 		:param message: The message to be encrypted
@@ -121,3 +122,19 @@ class CoreCryptoRSA:
 		:return: The output
 		"""
 		return message
+
+
+class CoreCryptoDH:
+
+	@staticmethod
+	def generate_dh_priv_key() -> (str, str):
+		return "x", "g^x"
+
+	@staticmethod
+	def compute_dh_shared_key(gy: str, x: str) -> str:
+		return "gxy"
+
+class CoreCryptoHash:
+
+	def compute_hash_derivative_key(gxy: str) -> str:
+		return "hash(g^xy)"
