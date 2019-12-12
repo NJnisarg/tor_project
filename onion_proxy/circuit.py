@@ -1,11 +1,9 @@
-import json
 from typing import List
 from connection.node import Node
 from connection.skt import Skt
-from cell.cell import Cell, CreateCellPayload, CreatedCellPayload, ExtendCellPayload
-from cell.control_cell import TapSHData, TapCHData, LinkSpecifier
-from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
-
+from crypto.core_crypto import CoreCryptoDH
+from cell.cell_processing import Builder, Parser, Processor
+from cell.serializers import Serialize, Deserialize
 
 class Circuit:
 	"""
@@ -55,45 +53,20 @@ class Circuit:
 		On error it closes the socket to node 1
 		"""
 		# First create a CREATE2 Cell.
-
-		# Making the create_cell
-		create_cell = Cell()
-		x, gx = create_cell.build_create_cell('TAP', 3, self.circ_id, self.node_container[1].onion_key_pub)
+		x, gx = CoreCryptoDH.generate_dh_priv_key()
+		create_cell = Builder.build_create_cell('TAP', x, gx, self.circ_id, self.node_container[1].onion_key_pub)
 
 		# Sending a JSON String down the socket
-		self.skt.client_send_data(create_cell.net_serialize())
+		self.skt.client_send_data(Serialize.obj_to_json(create_cell))
 
 		# Get the created cell in response and convert it to python Cell Object
-		created_cell = Cell.net_deserialize(str(self.skt.client_recv_data()), [CreatedCellPayload.deserialize, TapSHData.deserialize])
+		recv_data = str(self.skt.client_recv_data())
+		dict_cell = Deserialize.json_to_dict(recv_data)
+		created_cell = Parser.parse_created_cell(dict_cell)
 
-		# The cell is correctly structured
-		if created_cell.CIRCID == self.circ_id and created_cell.CMD == Cell.CMD_ENUM['CREATED2']:
-			created_h_data = created_cell.PAYLOAD.HDATA
-			gy = created_h_data.GY
-			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
-			if created_h_data.KH == CoreCryptoRSA.kdf_tor(gxy):
-				print("Handshake successful!")
-				self.session_key01 = gxy
-				return 0
-			else:
-				self.skt.close()
-				return -1
-		else:
+		self.session_key01 = Processor.process_created_cell(created_cell, self.circ_id, x)
+		if self.session_key01 is None:
 			self.skt.close()
 			return -1
-
-	def extend_circuit_hop_i(self, i) -> int:
-		"""
-		The function to setup circuit with the ith hop in the circuit. Creates the EXTEND/EXTEND2 cell and sends it
-		down the socket.
-		:return: Returns a status code. 0 --> Success DH Handshake and -1 --> Means error in processing the cell or the DH Handshake.
-		"""
-		# First create a EXTEND2 Cell.
-
-		extend_cell = Cell()
-		x, gx = extend_cell.build_extend_cell('TAP', 3, self.circ_id, self.node_container[i].onion_key_pub, self.node_container[i].host, self.node_container[i].port, 1, 'IPv4')
-
-		# Sending a JSON String down the socket
-		self.skt.client_send_data(extend_cell.net_serialize())
 
 		return 0

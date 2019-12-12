@@ -16,12 +16,9 @@ from onion_router.onion_router import OnionRouter
 def main():
 	print("Node started!")
 	print("Creating an onion router")
-	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]] 
-    onion_router = OnionRouter(node)
-
-    onion_router.listen()
-    onion_router.accept()
-
-    onion_router.circuits_list[0].create_circuit()
-
-    print("Circuit ready")
+	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]]
+	onion_router = OnionRouter(node)
+	onion_router.listen()
+	onion_router.accept()
+	onion_router.circuits_list[0].create_circuit()
+	print("Circuit ready")
