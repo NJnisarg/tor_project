@@ -83,7 +83,7 @@ class Cell:
 	def build_created_cell(self, cell_ver: int, circ_id: int, gx: str) -> (str, str):
 		y, gy = CoreCryptoDH.generate_dh_priv_key()
 		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
-		server_h_data = TapSHData(gy, CoreCryptoHash.compute_hash_derivative_key(gxy))
+		server_h_data = TapSHData(gy, CoreCryptoRSA.kdf_tor(gxy))
 		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
 
 		self.CIRCID = circ_id

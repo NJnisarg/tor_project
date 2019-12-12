@@ -134,7 +134,3 @@ class CoreCryptoDH:
 	def compute_dh_shared_key(gy: str, x: str) -> str:
 		return "gxy"
 
-class CoreCryptoHash:
-
-	def compute_hash_derivative_key(gxy: str) -> str:
-		return "hash(g^xy)"
