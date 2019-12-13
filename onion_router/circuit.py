@@ -7,6 +7,7 @@ import json
 from node_directory_service.node_directory_service import NodeDirectoryService
 from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoHash
 
+
 class Circuit:
 
 	def __init__(self, circ_id: int, node: Node, skt: Skt, sk=None):
