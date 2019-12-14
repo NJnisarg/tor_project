@@ -7,6 +7,7 @@ from connection.skt import Skt
     This file will be run when the onion proxy is booted up
 """
 
+current_circ_id = 0
 
 # This function is the actual entry point that will be called
 def main():
@@ -14,7 +15,9 @@ def main():
 	skt = Skt('127.0.0.1', 4444)
 
 	print("Creating a circuit")
-	circ_id = Circuit.get_rand_circ_id()
+	global current_circ_id
+	circ_id = Circuit.get_rand_circ_id(current_circ_id)
+	current_circ_id += 1
 	node_container = NodeDirectoryService.get_rand_three_nodes()
 	circuit = Circuit(node_container, skt, circ_id)
 

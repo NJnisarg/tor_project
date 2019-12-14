@@ -9,6 +9,8 @@ from crypto.core_crypto import CoreCryptoRSA
 
 class OnionRouter:
 
+    current_circ_id = 0
+
     def __init__(self, node=None, is_exit_node=True):
         self.node = node
         self.skt = Skt(node.host, node.port)
@@ -17,7 +19,8 @@ class OnionRouter:
         self.routing_table = {}
 
     def get_rand_circ_id(self) -> int:
-        return 1
+        self.current_circ_id += 1
+        return self.current_circ_id
 
     def listen(self):
         l = self.skt.server_listen()

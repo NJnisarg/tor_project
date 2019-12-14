@@ -13,12 +13,13 @@ class Circuit:
 	"""
 
 	@staticmethod
-	def get_rand_circ_id() -> int:
+	def get_rand_circ_id(current_circ_id: int) -> int:
 		"""
-		Returns a random circId for the circuit. Follows the Tor Spec to create the circId section 5.1.1
+		Returns a circId for the circuit. To prevent circId collisions, it increments the previous circId.
 		:return: circId --> integer
 		"""
-		return 1
+		circ_id = current_circ_id + 1
+		return circ_id
 
 	def __init__(self, node_container: List[Node], skt: Skt, circ_id: int):
 		"""
