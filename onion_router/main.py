@@ -1,9 +1,7 @@
 import sys
-import json
+
+sys.path.append('/home/njnisarg/tor_project')
 from node_directory_service.node_directory_service import NodeDirectoryService
-from connection.node import Node
-from connection.skt import Skt
-from onion_router.circuit import Circuit
 from onion_router.onion_router import OnionRouter
 
 """
@@ -14,14 +12,14 @@ from onion_router.onion_router import OnionRouter
 
 # This function is the actual entry point that will be called
 def main():
-	print("Node started!")
-	print("Creating an onion router")
-	node = NodeDirectoryService.get_nodes_from_csv()[sys.argv[1]] 
+    print("Starting the onion router")
+    node = NodeDirectoryService.get_nodes_from_csv()[1]
     onion_router = OnionRouter(node)
+    while True:
+        onion_router.listen()
+        print("Started listening")
+        onion_router.accept()
+        print("Accepted")
 
-    onion_router.listen()
-    onion_router.accept()
 
-    onion_router.circuits_list[0].create_circuit()
-
-    print("Circuit ready")
+main()
