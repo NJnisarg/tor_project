@@ -17,7 +17,7 @@ class Serialize:
 
 	@staticmethod
 	def obj_to_json(obj):
-		return json.loads(json.dumps(obj.reprJSON(), cls=ComplexEncoder))
+		return json.dumps(obj.reprJSON(), cls=ComplexEncoder)
 
 
 class Deserialize:

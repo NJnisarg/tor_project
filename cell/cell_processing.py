@@ -8,7 +8,8 @@ class Builder:
 
 	@staticmethod
 	def build_create_cell(handshake_type: str, x ,gx, circ_id: int, onion_key) -> Cell:
-		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
+		# client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
+		client_h_data = TapCHData("","","m1","m2")
 		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type], CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
 		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
 		return create_cell

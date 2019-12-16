@@ -5,6 +5,7 @@ from crypto.core_crypto import CoreCryptoDH
 from cell.cell_processing import Builder, Parser, Processor
 from cell.serializers import Serialize, Deserialize
 
+
 class Circuit:
 	"""
 	The class representing the Circuit object for the Onion Proxy.
@@ -57,10 +58,10 @@ class Circuit:
 		create_cell = Builder.build_create_cell('TAP', x, gx, self.circ_id, self.node_container[1].onion_key_pub)
 
 		# Sending a JSON String down the socket
-		self.skt.client_send_data(Serialize.obj_to_json(create_cell))
+		self.skt.client_send_data(Serialize.obj_to_json(create_cell).encode('utf-8'))
 
 		# Get the created cell in response and convert it to python Cell Object
-		recv_data = str(self.skt.client_recv_data())
+		recv_data = self.skt.client_recv_data().decode('utf-8')
 		dict_cell = Deserialize.json_to_dict(recv_data)
 		created_cell = Parser.parse_created_cell(dict_cell)
 

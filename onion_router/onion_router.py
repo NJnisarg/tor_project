@@ -1,10 +1,6 @@
-import json
-from node_directory_service.node_directory_service import NodeDirectoryService
-from connection.node import Node
 from connection.skt import Skt
-from circuit import Circuit
-from cell.cell import Cell
-from crypto.core_crypto import CoreCryptoRSA
+from onion_router.circuit import Circuit
+import threading
 
 
 class OnionRouter:
@@ -14,9 +10,11 @@ class OnionRouter:
         self.skt = Skt(node.host, node.port)
         self.is_exit_node = is_exit_node
         self.circuits_list = []
+        self.circuits_threads = []
         self.routing_table = {}
 
-    def get_rand_circ_id(self) -> int:
+    @staticmethod
+    def get_rand_circ_id() -> int:
         return 1
 
     def listen(self):
@@ -32,7 +30,11 @@ class OnionRouter:
             print("Error accepting connection")
             exit(0)
         cktid = self.get_rand_circ_id()
-        ckt = Circuit(cktid, self.node, self.skt)
+        ckt = Circuit(cktid, self.node, self.skt.conn)
         self.circuits_list.append(ckt)
-        return -1
 
+        circuit_th = threading.Thread(target=ckt.main, args=())
+        self.circuits_threads.append(circuit_th)
+        circuit_th.start()
+
+        return -1

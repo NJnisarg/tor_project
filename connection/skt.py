@@ -67,14 +67,7 @@ class Skt:
 		To receive all data at once as client
 		:return: Returns all the bytes of data
 		"""
-		fragments = []
-		while True:
-			chunk = self.skt.recv(1024)
-			if not chunk:
-				break
-			fragments.append(chunk)
-		arr = b''.join(fragments)
-		return arr
+		return self.skt.recv(1024)
 
 	def server_send_data(self, data: str):
 		"""
