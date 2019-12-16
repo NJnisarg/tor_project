@@ -1,7 +1,7 @@
 from typing import Dict
 from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
-from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoHash
+from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
 
 
 class Builder:
@@ -17,7 +17,7 @@ class Builder:
 	def build_created_cell(y, gy, circ_id: int, gx: str) -> Cell:
 		# y, gy = CoreCryptoDH.generate_dh_priv_key()
 		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
-		server_h_data = TapSHData(gy, CoreCryptoHash.compute_hash_derivative_key(gxy))
+		server_h_data = TapSHData(gy, CoreCryptoRSA.kdf_tor(gxy))
 		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
 		created_cell = Cell(circ_id, Cell.CMD_ENUM['CREATED2'], Cell.PAYLOAD_LEN, created_cell_payload)
 		return created_cell
@@ -65,9 +65,13 @@ class Parser:
 class Processor:
 
 	@staticmethod
-	def process_create_cell(cell: Cell):
-
-		return None
+	def process_create_cell(cell: Cell, private_onion_key):
+		create_cell_circid = cell.CIRCID
+		create_cell_cmd = cell.CMD
+		create_cell_payload_length = cell.LENGTH
+		create_cell_payload = cell.PAYLOAD
+		gx = CoreCryptoRSA.hybrid_decrypt(create_cell_payload.HDATA, private_onion_key)
+		return gx
 
 	@staticmethod
 	def process_created_cell(cell: Cell, required_circ_id: int, x: str):

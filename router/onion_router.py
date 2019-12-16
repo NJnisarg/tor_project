@@ -2,6 +2,7 @@ from connection.skt import Skt
 from router.circuit import Circuit
 import threading
 
+
 class OnionRouter:
 
     def __init__(self, node=None, is_exit_node=True):
@@ -12,7 +13,8 @@ class OnionRouter:
         self.circuits_threads = []
         self.routing_table = {}
 
-    def get_rand_circ_id(self) -> int:
+    @staticmethod
+    def get_rand_circ_id() -> int:
         return 1
 
     def listen(self):
@@ -36,4 +38,3 @@ class OnionRouter:
         circuit_th.start()
 
         return -1
-
