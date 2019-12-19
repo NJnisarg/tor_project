@@ -105,10 +105,6 @@ class CoreCryptoRSA:
 		"""
 		if len(message<=PK_ENC_LEN-PK_PAD_LEN)
 			p = pk.encrypt(message,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
-			"""jsonstr = 
-			{
-  				"m": p
-			}"""
 			jsonstr=TapCHData(pk,None,p,None)
 		else
 			k = os.urandom(KEY_LEN)
@@ -122,25 +118,13 @@ class CoreCryptoRSA:
 			cipher = Cipher(algorithms.AES(k), modes.CTR(nonce), backend=backend)
 			encryptor = cipher.encryptor()
 			p2 = encryptor.update(bytes(m2, encoding='utf-8')) + encryptor.finalize()
-			"""jsonstr = 
-			{
-  				"enc_m1": p1,
-  				"enc_m2": p2,
-  				"nonce": nonce,
-  				"key": k 
-			}"""
+			
 			jsonstr=TapCHData(nonce,k,p1,p2)
 
 		# convert into JSON:
 		y = jsonstr.net_serialize()
 
 		# the result is a JSON string:
-		#print(y)
-
-
-
-
-
 		return y
 
 
@@ -152,16 +136,11 @@ class CoreCryptoRSA:
 		:param pk: The RSA private key to decrypt the message with
 		:return: The decrypted message (json string)
 		"""
-		# some JSON:
-		#x =  '{ "name":"John", "age":30, "city":"New York"}'
 
-		# parse x:
-		#TapCHData json_inp
 		json_inp=Tapchdata.net_deserialize(message)
 		x=json_inp.serialize()
 		#x is now a dictionary
 
-		# the result is a Python dictionary:
 		if x["SYMKEY"]==None:
     		message = pk.decrypt(x["GX1"],padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
     	else
