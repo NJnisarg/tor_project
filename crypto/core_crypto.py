@@ -2,7 +2,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from typing import Any
-
+import json
+from cell.control_cell import TapCHData
 
 class CryptoConstants:
 	KEY_LEN = 16  # The length of the stream cipher's key, in bytes
@@ -102,7 +103,46 @@ class CoreCryptoRSA:
 		:param pk: The RSA public to encrypt the message with
 		:return: The encrypted message (json string)
 		"""
-		return message
+		if len(message<=PK_ENC_LEN-PK_PAD_LEN)
+			p = pk.encrypt(message,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+			"""jsonstr = 
+			{
+  				"m": p
+			}"""
+			jsonstr=TapCHData(pk,None,p,None)
+		else
+			k = os.urandom(KEY_LEN)
+			m1=message[0:PK_ENC_LEN-PK_PAD_LEN-KEY_LEN]
+			m2=message[PK_ENC_LEN-PK_PAD_LEN-KEY_LEN:]
+			p1 = pk.encrypt(k+m1,padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+
+
+			backend = default_backend()
+			nonce = bytearray(len(m2))
+			cipher = Cipher(algorithms.AES(k), modes.CTR(nonce), backend=backend)
+			encryptor = cipher.encryptor()
+			p2 = encryptor.update(bytes(m2, encoding='utf-8')) + encryptor.finalize()
+			"""jsonstr = 
+			{
+  				"enc_m1": p1,
+  				"enc_m2": p2,
+  				"nonce": nonce,
+  				"key": k 
+			}"""
+			jsonstr=TapCHData(nonce,k,p1,p2)
+
+		# convert into JSON:
+		y = jsonstr.net_serialize()
+
+		# the result is a JSON string:
+		#print(y)
+
+
+
+
+
+		return y
+
 
 	@staticmethod
 	def hybrid_decrypt(message: str, pk: rsa.RSAPrivateKey) -> str:
@@ -112,7 +152,29 @@ class CoreCryptoRSA:
 		:param pk: The RSA private key to decrypt the message with
 		:return: The decrypted message (json string)
 		"""
-		return message
+		# some JSON:
+		#x =  '{ "name":"John", "age":30, "city":"New York"}'
+
+		# parse x:
+		#TapCHData json_inp
+		json_inp=Tapchdata.net_deserialize(message)
+		x=json_inp.serialize()
+		#x is now a dictionary
+
+		# the result is a Python dictionary:
+		if x["SYMKEY"]==None:
+    		message = pk.decrypt(x["GX1"],padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    	else
+    		km1 = pk.decrypt(x["GX1"],padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),algorithm=hashes.SHA256(),label=None))
+    		m1=km1[len(k):]
+
+    		cipher = Cipher(algorithms.AES(k), modes.CTR(x["PADDING"]), backend=backend)
+    		decryptor = cipher.decryptor()
+			m2=decryptor.update(x["GX2"]) + decryptor.finalize()
+			
+		return_message=m1+m2
+
+		return return_message
 
 	@staticmethod
 	def kdf_tor(message: str) -> str:
