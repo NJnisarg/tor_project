@@ -1,6 +1,8 @@
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from typing import Any
 
 
@@ -115,13 +117,35 @@ class CoreCryptoRSA:
 		return message
 
 	@staticmethod
-	def kdf_tor(message: str) -> str:
+	def kdf_tor(message: str) -> dict:
 		"""
 		This method is the key derivative outlined in the Tor spec section 5.2.1
 		:param message: The message to be used to carry out KDF
 		:return: The output
 		"""
-		return message
+		backend = default_backend()
+		hkdf = HKDF(
+			algorithm=hashes.SHA256(),
+			length=KEY_LEN*2+HASH_LEN*3,
+			salt=None,
+			info=None,
+			backend=backend
+		)
+		
+		key = hkdf.derive(message.encode())
+
+		kdf_tor_dict = {
+			'KH': key[:HASH_LEN],
+			'Df': key[HASH_LEN:(2*HASH_LEN)],
+			'Db': key[(2*HASH_LEN):(3*HASH_LEN)],
+			'Kf': key[(3*HASH_LEN):((3*HASH_LEN)+KEY_LEN)],
+			'Kb': key[((3*HASH_LEN)+KEY_LEN):((3*HASH_LEN)+(2*KEY_LEN))]
+		}
+
+		# As of now, the function returns a dictionary due to certain problems with
+		# converting byte object to python strings. This needs to be fixed in the future
+
+		return kdf_tor_dict
 
 
 class CoreCryptoDH:
