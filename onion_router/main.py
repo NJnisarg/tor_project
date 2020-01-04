@@ -2,7 +2,7 @@ import sys
 
 sys.path.append('/home/njnisarg/tor_project')
 from node_directory_service.node_directory_service import NodeDirectoryService
-from onion_router.onion_router import OnionRouter
+from onion_router.router import OnionRouter
 
 """
     This file contains the main starting point of the onion router.
