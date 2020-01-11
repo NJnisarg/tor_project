@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 
-class Relay_Extended2_Payload:
+class Relay_Extend2_Payload:
 
     def __init__(self, NPSEC,LSTPYE,LSLEN,HTYPE,HLEN,HDATA):
        '''
