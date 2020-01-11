@@ -17,30 +17,73 @@ class Skt:
 		self.port = own_port
 		self.skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		self.skt.bind((self.host, self.port))
+		self.conn = None
+		self.remote_addr = None
 
-	def remote_connect(self, remote_host: str, remote_port: int):
+	def client_connect(self, remote_host: str, remote_port: int) -> int:
 		"""
 		The method to connect to a remote socket
 		:param remote_host: The remote host ip to connect to
 		:param remote_port: The remote host port to connect to
+		:return err_code: 0 if no error and -1 if there is an error
 		"""
-		self.skt.connect((remote_host, remote_port))
+		try:
+			self.skt.connect((remote_host, remote_port))
+			return 0
+		except Exception as e:
+			return -1
 
-	def send_data(self, data: str):
+	def server_accept(self) -> int:
 		"""
-		The method to send data
+		The method to accept connection from a remote socket
+		:return err_code: 0 if no error and -1 if there is an error
+		"""
+		try:
+			self.conn, self.remote_addr = self.skt.accept()
+			return 0
+		except Exception as e:
+			return -1
+
+	def server_listen(self) -> int:
+		"""
+		The method to listen for connection from a remote socket
+		:return err_code: 0 if no error and -1 if there is an error
+		"""
+		try:
+			self.skt.listen()
+			return 0
+		except Exception as e:
+			return -1
+
+	def client_send_data(self, data: str):
+		"""
+		The method to send data as client
 		:param data: The data in string format to be sent
 		"""
 		self.skt.sendall(data)
 
-	def recv_data(self) -> bytes:
+	def client_recv_data(self) -> bytes:
 		"""
-		To receive all data at once
+		To receive all data at once as client
+		:return: Returns all the bytes of data
+		"""
+		return self.skt.recv(1024)
+
+	def server_send_data(self, data: str):
+		"""
+		The method to send data as server
+		:param data: The data in string format to be sent
+		"""
+		self.conn.sendall(data)
+
+	def server_recv_data(self) -> bytes:
+		"""
+		To receive all data at once as server
 		:return: Returns all the bytes of data
 		"""
 		fragments = []
 		while True:
-			chunk = self.skt.recv(1024)
+			chunk = self.conn.recv(1024)
 			if not chunk:
 				break
 			fragments.append(chunk)
