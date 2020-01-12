@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+from crypto.core_crypto import CryptoConstants as CC
 
 class RelayCellPayload:
 
@@ -62,7 +63,26 @@ class Relay_Extend2_Payload:
        self.HDATA=HDATA
 
 
+    def reprJSON(self) -> Dict[str, Any]:
+       return vars(self)
 
-       def reprJSON(self) -> Dict[str, Any]:
-            return vars(self)
+class RelayExtendedPayload:
+
+    """
+    The class representing Extended Cell's payload object
+    """
+
+    TAP_S_HANDSHAKE_LEN = CC.DH_LEN + CC.HASH_LEN
     
+    def __init__(self, HLEN: int=None, HDATA=None):
+        """
+		Constructor
+		:param HLEN: The Length of the HDATA
+		:param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
+		"""
+		self.HLEN = HLEN
+		self.HDATA = HDATA
+
+    def reprJSON(self) -> Dict[str, Any]:
+		    return vars(self)
+

@@ -1,6 +1,7 @@
 from typing import Dict
 from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
+from cell.relay_cell import RelayCellPayload, RelayExtendedPayload
 from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
 
 
@@ -18,10 +19,20 @@ class Builder:
 	def build_created_cell(y, gy, circ_id: int, gx: str) -> Cell:
 		# y, gy = CoreCryptoDH.generate_dh_priv_key()
 		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
-		server_h_data = TapSHData(gy, CoreCryptoRSA.kdf_tor(gxy))
+		kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
+		server_h_data = TapSHData(gy, kdf_dict['KH'])
 		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
 		created_cell = Cell(circ_id, Cell.CMD_ENUM['CREATED2'], Cell.PAYLOAD_LEN, created_cell_payload)
 		return created_cell
+
+	@staticmethod
+	def build_extended_cell(y, gy, circ_id: int, gx: str) -> Cell:
+		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
+		kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
+		server_h_data = TapSHData(gy, kdf_dict['KH'])
+		extended_cell_payload = RelayExtendedPayload(RelayExtendedPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
+		extended_cell = Cell(circ_id, RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], Cell.PAYLOAD_LEN, extended_cell_payload)
+		return extended_cell
 
 
 class Parser:
@@ -62,6 +73,24 @@ class Parser:
 
 		return created_cell
 
+	@staticmethod
+	def parse_extended_cell(dict_cell: Dict) -> Cell:
+
+		if 'CMD' not in dict_cell:
+			return None
+
+		if dict_cell['CMD'] != Cell.RELAY_CMD_ENUM['RELAY_EXTENDED2']:
+			return None
+
+		server_h_data = dict_cell['PAYLOAD']['HDATA']
+		server_h_data = TapSHData(server_h_data['GY'], server_h_data['KH'])
+
+		extended_cell_payload = RelayExtendedPayload(dict_cell['PAYLOAD']['HLEN'], server_h_data)
+
+		extended_cell = Cell(dict_cell['CIRCID'], RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], dict_cell['LENGTH'], extended_cell_payload)
+
+		return extended_cell
+
 
 class Processor:
 
@@ -80,11 +109,35 @@ class Processor:
 			created_h_data = cell.PAYLOAD.HDATA
 			gy = created_h_data.GY
 			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
-			if created_h_data.KH == CoreCryptoRSA.kdf_tor(gxy):
+			kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
+			if created_h_data.KH == kdf_dict['KH']:
 				print("Handshake successful!")
-				return gxy
+				return kdf_dict
 			else:
 				return None
 		else:
 			return None
 
+	@staticmethod
+	def process_extended_cell(cell: Cell, required_circ_id: int, x: str):
+		if cell.CIRCID == required_circ_id:
+			extended_h_data = cell.PAYLOAD.HDATA
+			gy = extended_data.GY
+			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
+			kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
+			if extended_h_data.KH == kdf_dict['KH']:
+				print("Handshake successful!")
+				return kdf_dict
+			else:
+				return None
+		else:
+			return None
+
+"""
+The processing functions for created and extended cells return
+dictionaries created by kdf_tor() function.
+
+For verifying KH, the kdf_dict has to be accessed. This is added
+to the 'extended' cell handling and similar changes have been made
+in the parsing and processing of 'created' cells
+"""
