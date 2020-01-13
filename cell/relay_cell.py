@@ -1,6 +1,6 @@
 from typing import List, Dict, Any
 from crypto.core_crypto import CryptoConstants as CC
-
+import array
 class RelayCellPayload:
 
     RELAY_CMD_ENUM = {
@@ -42,7 +42,7 @@ class RelayCellPayload:
     
 class Relay_Extend2_Payload:
 
-    def __init__(self, NPSEC,LSTPYE,LSLEN,HTYPE,HLEN,HDATA):
+    def __init__(self, NPSEC: int=None,LSTPYE: int=None,LSLEN: int=None,HTYPE: int=None,HLEN: int=None,HDATA: int=None):
        '''
         An EXTEND2 cell's relay payload contains:
         NSPEC(Number of link specifiers)     [1 byte]
@@ -55,12 +55,12 @@ class Relay_Extend2_Payload:
         HDATA(Client Handshake Data)         [HLEN bytes]
         '''
        self.NSPEC=NPSEC
-       self.LSTYPE=NPSEC*LSTYPE
-       self.LSLEN=NPSEC*LSLEN
-       self.LSPEC = NPSEC*LSPEC
+       self.LSTYPE=array.array('b',[LSTYPE])# array of size NSPEC 
+       self.LSLEN=array.array('b',[LSLEN])# array of size NSPEC 
+       self.LSPEC=array.array('b',[LSPEC])# array of size NSPEC 
        self.HTYPE=HTYPE
        self.HLEN=HLEN
-       self.HDATA=HDATA
+       self.HDATA=array.array('i',[HDATA])#array of size HLEN
 
 
     def reprJSON(self) -> Dict[str, Any]:
