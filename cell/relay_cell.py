@@ -1,9 +1,8 @@
 from typing import List, Dict, Any
-from crrypto.core_crypto import CryptoConstants as CC
-import array
-
+from crypto.core_crypto import CryptoConstants as CC
 
 class RelayCellPayload:
+
     RELAY_CMD_ENUM = {
         'RELAY_BEGIN': 1,
         'RELAY_DATA': 2,
@@ -31,60 +30,58 @@ class RelayCellPayload:
         :param Length: The length of the payload
         :param Data: The Payload object
         """
-        self.RELAY_CMD = RELAY_CMD
-        self.RECOGNIZED = RECOGNIZED
-        self.StreamID = StreamID
-        self.Digest = Digest
-        self.Length = Length
-        self.Data = Data
+        self.RELAY_CMD=RELAY_CMD
+        self.RECOGNIZED=RECOGNIZED
+        self.StreamID=StreamID
+        self.Digest=Digest
+        self.Length=Length
+        self.Data=Data
 
         def reprJSON(self) -> Dict[str, Any]:
             return vars(self)
-
-
+    
 class Relay_Extend2_Payload:
 
-    def __init__(self, NPSEC: int = None, LSTPYE: int = None, LSLEN: int = None, HTYPE: int = None, HLEN: int = None,
-                 HDATA: int = None):
+    def __init__(self, NPSEC,LSTPYE,LSLEN,HTYPE,HLEN,HDATA):
+       '''
+        An EXTEND2 cell's relay payload contains:
+        NSPEC(Number of link specifiers)     [1 byte]
+        NSPEC times:
+            LSTYPE(Link specifier type)           [1 byte]
+            LSLEN(Link specifier length)         [1 byte]
+            LSPEC(Link specifier)                [LSLEN bytes]
+        HTYPE(Client Handshake Type)         [2 bytes]
+        HLEN(Client Handshake Data Len)     [2 bytes]
+        HDATA(Client Handshake Data)         [HLEN bytes]
         '''
-         An EXTEND2 cell's relay payload contains:
-         NSPEC(Number of lnik specifiers)     [1 byte]
-         NSPEC times:
-             LSTYPE(Link specifier type)           [1 byte]
-             LSLEN(Link specifier length)         [1 byte]
-             LSPEC(Link specifier)                [LSLEN bytes]
-         HTYPE(Client Handshake Type)         [2 bytes]
-         HLEN(Client Handshake Data Len)     [2 bytes]
-         HDATA(Client Handshake Data)         [HLEN bytes]
-         '''
-        self.NSPEC = NPSEC
-        self.LSTYPE =NSPEC*[None]  # array of size NSPEC
-        self.LSLEN = NSPEC*[None]  # array of size NSPEC
-        self.LSPEC = NSPEC*[None]  # array of size NSPEC
-        self.HTYPE = HTYPE
-        self.HLEN = HLEN
-        self.HDATA = Hlen*[None]  # array of size HLEN
+       self.NSPEC=NPSEC
+       self.LSTYPE=NPSEC*LSTYPE
+       self.LSLEN=NPSEC*LSLEN
+       self.LSPEC = NPSEC*LSPEC
+       self.HTYPE=HTYPE
+       self.HLEN=HLEN
+       self.HDATA=HDATA
+
 
     def reprJSON(self) -> Dict[str, Any]:
-        return vars(self)
-
+       return vars(self)
 
 class RelayExtendedPayload:
+
     """
     The class representing Extended Cell's payload object
     """
 
     TAP_S_HANDSHAKE_LEN = CC.DH_LEN + CC.HASH_LEN
-
-    def __init__(self, HLEN: int = None, HDATA=None):
+    
+    def __init__(self, HLEN: int=None, HDATA=None):
         """
 		Constructor
 		:param HLEN: The Length of the HDATA
 		:param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
 		"""
-        self.HLEN = HLEN
-        self.HDATA = HDATA
+		self.HLEN = HLEN
+		self.HDATA = HDATA
 
-
-def reprJSON(self) -> Dict[str, Any]:
-    return vars(self)
+    def reprJSON(self) -> Dict[str, Any]:
+		    return vars(self)
