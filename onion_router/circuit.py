@@ -21,20 +21,20 @@ class Circuit:
 	def main(self):
 		sockets_list = [self.conn]
 		while True:
-			read_sockets, write_socket, error_socket = select.select(sockets_list, [], [])
-			for socket in read_sockets:
+			socket_list = [self.conn, self.skt]
+			for socket in socket_list:
 				cell = str(socket.recv(1024).decode())
 				if cell is None or cell == "":
 					continue
 				cell_dict = Deserialize.json_to_dict(cell)
 				if cell_dict:
 					print(cell_dict)
-					proc_thread = threading.Thread(target=self.process_cell, args=(cell_dict, socket,))
+					proc_thread = threading.Thread(target=self.process_cell, args=(cell_dict))
 					proc_thread.start()
 			# except:
 			#     print("Error")
 
-	def process_cell(self, cell, socket):
-		processcell = ProcessCell(cell, self.conn, self.skt, socket, self.node, self.circ_id)
+	def process_cell(self, cell):
+		processcell = ProcessCell(cell, self.conn, self.skt, self.node, self.circ_id)
 		processcell.cmd_to_func[cell['CMD']]()
 		return None
