@@ -13,7 +13,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 from cell.control_cell import TapCHData
 from cryptography.hazmat.primitives.asymmetric import padding
-from cryptography.hazmat.primitives import hashes
+#from cryptography.hazmat.primitives import hashes
 
 class CryptoConstants:
     KEY_LEN = 16  # The length of the stream cipher's key, in bytes
@@ -208,3 +208,13 @@ class CoreCryptoDH:
     def compute_dh_shared_key(gy: str, x: str) -> str:
         return "gxy"
 
+class CoreCryptoMisc:
+
+    @staticmethod
+    def calculate_digest(message_dict):
+        digest_obj = hashes.Hash(hashes.SHA256(), backend=default_backend())
+        for data in message_dict.values():
+            str_data = str(data)
+            digest_obj.update(str_data.encode())
+        digest = digest_obj.finalize()
+        return digest

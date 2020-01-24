@@ -1,8 +1,9 @@
 from typing import Dict
 from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
-from cell.relay_cell import RelayCellPayload, RelayExtendedPayload
-from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
+from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload
+from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc
+from connection.skt import Skt
 
 
 class Builder:
@@ -26,13 +27,62 @@ class Builder:
 		return created_cell
 
 	@staticmethod
-	def build_extended_cell(y, gy, circ_id: int, gx: str) -> Cell:
+	def build_extended_cell(y, gy, streamID: int, circ_id: int, gx: str, recognized) -> Cell:
 		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
 		kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 		server_h_data = TapSHData(gy, kdf_dict['KH'])
-		extended_cell_payload = RelayExtendedPayload(RelayExtendedPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
-		extended_cell = Cell(circ_id, RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], Cell.PAYLOAD_LEN, extended_cell_payload)
+
+		# Construct extended2 payload
+		extended_cell_payload_relay = RelayExtendedPayload(RelayExtendedPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
+		
+		# Calculate digest from the extended2 payload
+		payload_dict = {
+			'HLEN' = extended_cell_payload_relay.HLEN,
+			'HDATA' = extended_cell_payload_relay.HDATA
+		}
+		digest = CoreCryptoMisc.calculate_digest(payload_dict)
+
+		# Construct the Relay cell with extended2 payload which is the payload for the Cell class
+		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['EXTENDED2'], recognized, streamID, digest, Cell.PAYLOAD_LEN-11, extended_cell_payload_relay)
+
+		# Construct the actual cell
+		extended_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, extended_cell_payload)
 		return extended_cell
+
+
+	@staticmethod
+	def build_begin_cell(addrport: str, flag_dict, circ_id: int, recognized, streamID) -> Cell:
+		flags = ''
+		i = 0
+		while i < 29:
+			flags = flags + '0'
+		
+		if flag_dict['IPV6_PREF'] == 1:
+			flags = flags + '1'
+		else:
+			flags = flags + '0'
+		
+		if flag_dict['IPV4_NOT_OK'] == 1:
+			flags = flags + '1'
+		else:
+			flags = flags + '0'
+		
+		if flag_dict['IPV6_OK'] == 1:
+			flags = flags + '1'
+		else:
+			flags = flags + '0'
+		
+		begin_cell_payload_relay = RelayBeginPayload(addrport, flags)
+
+		payload_dict = {
+			'ADDRPORT': addrport,
+			'FLAGS': flags
+		}
+		digest = CoreCryptoMisc.calculate_digest(payload_dict)
+
+		begin_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN'], recognized, streamID, digest, Cell.PAYLOAD_LEN-11, begin_cell_payload_relay)
+		begin_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, begin_cell_payload)
+		return build_cell
 
 
 class Parser:
@@ -78,18 +128,37 @@ class Parser:
 
 		if 'CMD' not in dict_cell:
 			return None
-
-		if dict_cell['CMD'] != Cell.RELAY_CMD_ENUM['RELAY_EXTENDED2']:
+		if dict_cell['CMD'] != Cell.CMD_ENUM['RELAY']:
+			return None
+		if dict_cell['PAYLOAD']['RELAY_CMD'] != RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2']:
 			return None
 
-		server_h_data = dict_cell['PAYLOAD']['HDATA']
+		server_h_data = dict_cell['PAYLOAD']['Data']['HDATA']
 		server_h_data = TapSHData(server_h_data['GY'], server_h_data['KH'])
 
-		extended_cell_payload = RelayExtendedPayload(dict_cell['PAYLOAD']['HLEN'], server_h_data)
+		extended_cell_payload_relay = RelayExtendedPayload(dict_cell['PAYLOAD']['Data']['HLEN'], server_h_data)
 
-		extended_cell = Cell(dict_cell['CIRCID'], RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], dict_cell['LENGTH'], extended_cell_payload)
+		extended_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'], dict_cell['PAYLOAD']['StreamID'],dict_cell['PAYLOAD']['Digest'], dict_cell['PAYLOAD']['Length'], extended_cell_payload_relay)
+
+		extended_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], extended_cell_payload)
 
 		return extended_cell
+
+	@staticmethod
+	def parse_begin_cell(dict_cell: Dict) -> Cell:
+
+		if 'CMD' not in dict_cell:
+			return None
+		if dict_cell['CMD'] != Cell.CMD_ENUM['RELAY']:
+			return None
+		if dict_cell['PAYLOAD']['RELAY_CMD'] != RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']:
+			return None
+
+		begin_cell_payload_relay = RelayBeginPayload(dict_cell['PAYLOAD']['Data']['ADDRPORT'], dict_cell['PAYLOAD']['Data']['FLAGS'])
+		begin_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'], dict_cell['PAYLOAD']['StreamID'],dict_cell['PAYLOAD']['Digest'], dict_cell['PAYLOAD']['Length'], begin_cell_payload_relay)
+		begin_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], begin_cell_payload)
+
+		return begin_cell
 
 
 class Processor:
@@ -121,8 +190,8 @@ class Processor:
 	@staticmethod
 	def process_extended_cell(cell: Cell, required_circ_id: int, x: str):
 		if cell.CIRCID == required_circ_id:
-			extended_h_data = cell.PAYLOAD.HDATA
-			gy = extended_data.GY
+			extended_h_data = cell.PAYLOAD.Data.HDATA
+			gy = extended_h_data.GY
 			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
 			kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 			if extended_h_data.KH == kdf_dict['KH']:
@@ -141,3 +210,26 @@ For verifying KH, the kdf_dict has to be accessed. This is added
 to the 'extended' cell handling and similar changes have been made
 in the parsing and processing of 'created' cells
 """
+
+
+"""
+The processing function for begin cell is simple since it just creates
+a socket between client(exit node) and server to connect to. It returns one of
+two values:
+-1: This implies an error and the exit node has to send a RELAY_END cell to the
+previous onion router.
+socket: This implies success and the exit node has to send a RELAY_CONNECTED cell to the
+previous onion router, which is when the data transmission takes place.
+"""
+
+	@staticmethod
+	def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int, remote_host: str, remote_port: int):
+		
+		# Bind Socket to local host
+		socket = Skt(local_host, local_port)
+
+		# Connect socket to remote host
+		if socket.client_connect(remote_host, remote_port) == 0:
+			return socket
+		else:
+			return -1
