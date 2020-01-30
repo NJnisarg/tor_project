@@ -37,8 +37,8 @@ class RelayCellPayload:
         self.Length=Length
         self.Data=Data
 
-        def reprJSON(self) -> Dict[str, Any]:
-            return vars(self)
+    def reprJSON(self) -> Dict[str, Any]:
+        return vars(self)
     
 class Relay_Extend2_Payload:
 
@@ -85,3 +85,21 @@ class RelayExtendedPayload:
 
     def reprJSON(self) -> Dict[str, Any]:
 		    return vars(self)
+
+class RelayBeginPayload:
+    
+    """
+    The class representing Relay Begin Cell's payload object
+    """
+
+    def __init__(self, ADDRPORT: str, FLAGS: str):
+        """
+        Constructor
+        :param ADDRPORT: The hostname, the IPv4 address or the IPv6 address of the host to connect to.
+        :param FLAGS: A set of options (32) to specify conditions for the creation of the payload. Check TOR Spec sec 6.2.
+        """
+        self.ADDRPORT = ADDRPORT
+        self.FLAGS = FLAGS
+
+    def reprJSON(self) -> Dict[str, any]:
+        return vars(self)
