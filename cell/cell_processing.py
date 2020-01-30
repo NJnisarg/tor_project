@@ -17,6 +17,14 @@ class Builder:
 		return create_cell
 
 	@staticmethod
+	def extend2_build_create_cell(handshake_type: str, x, gx, circ_id: int, onion_key) -> Cell:
+		# client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
+		client_h_data = TapCHData("", "", "m1", "m2")
+		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
+		create_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, create_cell_payload)
+		return create_cell
+
+	@staticmethod
 	def build_created_cell(y, gy, circ_id: int, gx: str) -> Cell:
 		# y, gy = CoreCryptoDH.generate_dh_priv_key()
 		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
@@ -106,6 +114,23 @@ class Parser:
 		return create_cell
 
 	@staticmethod
+	def extend2_parse_create_cell(dict_cell: Dict) -> Cell:
+
+		if 'CMD' not in dict_cell:
+			return None
+
+		if dict_cell['CMD'] != Cell.CMD_ENUM['RELAY']:
+			return None
+
+		client_h_data = dict_cell['PAYLOAD']['HDATA']
+		client_h_data = TapCHData(client_h_data['PADDING'], client_h_data['SYMKEY'], client_h_data['GX1'],
+								  client_h_data['GX2'])
+
+		create_cell_payload = CreateCellPayload(dict_cell['PAYLOAD']['HTYPE'], dict_cell['PAYLOAD']['HLEN'],client_h_data)
+		create_cell = Cell(dict_cell['CIRCID'], Cell.CMD_ENUM['RELAY'], dict_cell['LENGTH'], create_cell_payload)
+		return create_cell
+
+	@staticmethod
 	def parse_created_cell(dict_cell: Dict) -> Cell:
 
 		if 'CMD' not in dict_cell:
@@ -165,6 +190,15 @@ class Processor:
 
 	@staticmethod
 	def process_create_cell(cell: Cell, private_onion_key):
+		create_cell_circid = cell.CIRCID
+		create_cell_cmd = cell.CMD
+		create_cell_payload_length = cell.LENGTH
+		create_cell_payload = cell.PAYLOAD
+		gx = CoreCryptoRSA.hybrid_decrypt(create_cell_payload.HDATA, private_onion_key)
+		return gx
+
+	@staticmethod
+	def extend2_process_create_cell(cell: Cell, private_onion_key):
 		create_cell_circid = cell.CIRCID
 		create_cell_cmd = cell.CMD
 		create_cell_payload_length = cell.LENGTH
