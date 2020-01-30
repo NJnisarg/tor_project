@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('/home/njnisarg/tor_project')
+sys.path.append('/home/arpitha/IEEE/tor_3rdYear/tor_project')
 
 from node_directory_service.node_directory_service import NodeDirectoryService
 from onion_proxy.circuit import Circuit
@@ -14,27 +14,33 @@ from connection.skt import Skt
 
 # This function is the actual entry point that will be called
 def main():
-	print("Onion proxy started!")
-	skt = Skt('127.0.0.1', 12346)
+    print("Onion proxy started!")
+    skt = Skt('127.0.0.1', 12346)
 
-	print("Creating a circuit")
-	circ_id = Circuit.get_rand_circ_id()
-	node_container = NodeDirectoryService.get_rand_three_nodes()
-	circuit = Circuit(node_container, skt, circ_id)
+    print("Creating a circuit")
+    circ_id = Circuit.get_rand_circ_id()
+    node_container = NodeDirectoryService.get_rand_three_nodes()
+    circuit = Circuit(node_container, skt, circ_id)
 
-	# Open a TCP connection to first node in the circuit
-	err_code = circuit.open_connection(1)
-	if err_code == 0:
-		print("Opened TCP Connection to the node")
-		# Now we call create a cell and send it
-		err_code = circuit.create_circuit_hop1()
-		if err_code == 0:
-			print("Established the session key. DH Handshake successful")
-		else:
-			print("could not establish the session key. Closed the TCP Connection with the node 1")
-	else:
-		print("Error in establishing TCP connection to the node:")
-		exit(0)
+    # Open a TCP connection to first node in the circuit
+    err_code = circuit.open_connection(1)
+    if err_code == 0:
+        print("Opened TCP Connection to the node")
+        # Now we call create a cell and send it
+        err_code = circuit.create_circuit_hop1()
+        if err_code == 0:
+            print("Router 1: Established the session key. DH Handshake successful.")
+            if err_code == 0:
+                print("Router 2: Established the session key. DH Handshake successful")
+            else:
+                print("Router 2: could not establish the session key. Closed the TCP Connection with the node 2")
+        else:
+            print("Router 1: could not establish the session key. Closed the TCP Connection with the node 1")
+            err_code = circuit.create_circuit_hop2()
+    else:
+        print("Error in establishing TCP connection to the node:")
+        exit(0)
+
 
 # Now setup the circuit incrementally with all the nodes
 main()
