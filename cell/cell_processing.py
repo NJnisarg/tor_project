@@ -7,10 +7,16 @@ from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH
 class Builder:
 
 	@staticmethod
-	def build_create_cell(handshake_type: str, x ,gx, circ_id: int, onion_key) -> Cell:
+	def build_create_cell(handshake_type: str, x, gx, circ_id: int, onion_key) -> Cell:
 		# client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
-		client_h_data = TapCHData("","","m1","m2")
+		client_h_data = TapCHData("", "", "m1", "m2")
 		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type], CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
+		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
+		return create_cell
+
+	@staticmethod
+	def build_create_cell(circ_id: int, htype, hlen, hdata) -> Cell:
+		create_cell_payload = CreateCellPayload(htype, hlen, hdata)
 		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
 		return create_cell
 
@@ -22,6 +28,26 @@ class Builder:
 		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
 		created_cell = Cell(circ_id, Cell.CMD_ENUM['CREATED2'], Cell.PAYLOAD_LEN, created_cell_payload)
 		return created_cell
+
+	@staticmethod
+	def build_extended_cell(circ_id: int, hlen, hdata) -> Cell:
+		relay_extended_cell_payload = RelayExtendedPayload(hlen, hdata)
+
+		# Calculate digest from the extended2 payload
+		# payload_dict = {
+		#     'HLEN': relay_extended_cell_payload.HLEN,
+		#     'HDATA': relay_extended_cell_payload.HDATA
+		# }
+		# digest = CoreCryptoMisc.calculate_digest(payload_dict)
+		# Using a digest here will ruin the code structure where the payload of a cell is another object
+		# Function to get payload from digest?
+
+		# Construct the Relay cell with extended2 payload which is the payload for the Cell class
+		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], False, 0, "", Cell.PAYLOAD_LEN - 11, relay_extended_cell_payload)
+
+		# Construct the actual cell
+		extended_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, extended_cell_payload)
+		return extended_cell
 
 
 class Parser:
@@ -88,3 +114,9 @@ class Processor:
 		else:
 			return None
 
+	@staticmethod
+	def process_created_cell(cell: Cell):
+		payload = cell.PAYLOAD
+		hlen = payload.HLEN
+		hdata = payload.HDATA
+		return hlen, hdata
