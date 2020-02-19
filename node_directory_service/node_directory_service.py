@@ -37,14 +37,15 @@ class NodeDirectoryService:
 					node = Node(row[0], int(row[1]), None, id_pub, None, onion_pub)
 
 					# Only for the client node we load its private keys. Other nodes we can't
-					if i == 0:
-						id_priv = CoreCryptoRSA.load_private_key_from_disc(
-							BASE_PROJECT_DIR + '/node_directory_service' + '/keyfiles' + '/' + row[2])
-						node.identity_key_pri = id_priv
+					# if i == 0:
+					id_priv = CoreCryptoRSA.load_private_key_from_disc(
+						BASE_PROJECT_DIR + '/node_directory_service' + '/keyfiles' + '/' + row[2])
+					node.identity_key_pri = id_priv
 
-						onion_priv = CoreCryptoRSA.load_private_key_from_disc(
-							BASE_PROJECT_DIR + '/node_directory_service' + '/keyfiles' + '/' + row[3])
-						node.onion_key_pri = onion_priv
+					onion_priv = CoreCryptoRSA.load_private_key_from_disc(
+						BASE_PROJECT_DIR + '/node_directory_service' + '/keyfiles' + '/' + row[3])
+					node.onion_key_pri = onion_priv
+
 
 					node_container.append(node)
 

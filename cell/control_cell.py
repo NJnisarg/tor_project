@@ -1,5 +1,5 @@
 from typing import List, Dict, Any
-from crypto.core_crypto import CryptoConstants as CC
+from crypto.crypto_constants import CryptoConstants as CC
 
 
 class CreateCellPayload:

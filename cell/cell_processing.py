@@ -10,8 +10,8 @@ class Builder:
 
 	@staticmethod
 	def build_create_cell(handshake_type: str, x ,gx, circ_id: int, onion_key) -> Cell:
-		# client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
-		client_h_data = TapCHData("","","m1","m2")
+		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
+		# client_h_data = TapCHData("","","m1","m2")
 		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type], CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
 		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
 		return create_cell
@@ -28,7 +28,9 @@ class Builder:
 	def build_created_cell(y, gy, circ_id: int, gx: str) -> Cell:
 		# y, gy = CoreCryptoDH.generate_dh_priv_key()
 		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
+		print(gxy)
 		kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
+		print(kdf_dict)
 		server_h_data = TapSHData(gy, kdf_dict['KH'])
 		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
 		created_cell = Cell(circ_id, Cell.CMD_ENUM['CREATED2'], Cell.PAYLOAD_LEN, created_cell_payload)
@@ -45,8 +47,8 @@ class Builder:
 		
 		# Calculate digest from the extended2 payload
 		payload_dict = {
-			'HLEN' = extended_cell_payload_relay.HLEN,
-			'HDATA' = extended_cell_payload_relay.HDATA
+			'HLEN' : extended_cell_payload_relay.HLEN,
+			'HDATA' : extended_cell_payload_relay.HDATA
 		}
 		digest = CoreCryptoMisc.calculate_digest(payload_dict)
 
@@ -256,14 +258,14 @@ socket: This implies success and the exit node has to send a RELAY_CONNECTED cel
 previous onion router, which is when the data transmission takes place.
 """
 
-	@staticmethod
-	def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int, remote_host: str, remote_port: int):
-		
-		# Bind Socket to local host
-		socket = Skt(local_host, local_port)
+@staticmethod
+def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int, remote_host: str, remote_port: int):
 
-		# Connect socket to remote host
-		if socket.client_connect(remote_host, remote_port) == 0:
-			return socket
-		else:
-			return -1
+	# Bind Socket to local host
+	socket = Skt(local_host, local_port)
+
+	# Connect socket to remote host
+	if socket.client_connect(remote_host, remote_port) == 0:
+		return socket
+	else:
+		return -1

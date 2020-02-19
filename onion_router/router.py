@@ -5,22 +5,33 @@ import threading
 
 class OnionRouter:
 
-    current_circ_id = 0
-
     def __init__(self, node=None, is_exit_node=True):
+        """
+        The Constructor for Onion Router
+        :param node: The node Object that will be used for the router
+        :param is_exit_node: The Policy for the node. Defaults to true
+        """
         self.node = node
-        self.skt = Skt(node.host, node.port)
+        self.skt = Skt(node.host, node.port)  # The Socket object for the router to get new connection
         self.is_exit_node = is_exit_node
-        self.circuits_list = []
-        self.circuits_threads = []
-        self.routing_table = {}
+        self.circuits_list = []  # The list of circuits
+        self.circuits_threads = []  # The list of threads corresponding to circuits
+        self.routing_table = {}  # Not used right now, might remove it
+        self.current_circ_id = 0  # Holds the circuit id for the router
 
-    @staticmethod
     def get_rand_circ_id(self) -> int:
+        """
+        Simple incrementing circ id generator for router
+        :return: the next circuit id
+        """
         self.current_circ_id += 1
         return self.current_circ_id
 
     def listen(self):
+        """
+        Listen on the socket
+        :return: nothing if works, -1 if error
+        """
         l = self.skt.server_listen()
         if l != 0:
             print("Error listening")
@@ -28,14 +39,26 @@ class OnionRouter:
         return -1
 
     def accept(self):
+        """
+        Accept a socket connection function
+        :return: -1 if error comes
+        """
+
+        # Accept the connection
         a = self.skt.server_accept()
         if a != 0:
             print("Error accepting connection")
             exit(0)
+
+        # Fetch a new circuit ID
         cktid = self.get_rand_circ_id()
+
+        # Create a new circuit and add it to the list
         ckt = Circuit(cktid, self.node, self.skt.conn)
         self.circuits_list.append(ckt)
 
+        # Create a new thread that starts circuit's main function
+        # Add the thread to the list
         circuit_th = threading.Thread(target=ckt.main, args=())
         self.circuits_threads.append(circuit_th)
         circuit_th.start()
