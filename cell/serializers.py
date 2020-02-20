@@ -3,6 +3,9 @@ import base64
 
 
 class ComplexEncoder(json.JSONEncoder):
+	"""
+	The class used for recursively allowing JSON conversion
+	"""
 	def default(self, obj):
 		if hasattr(obj, 'reprJSON'):
 			return obj.reprJSON()
@@ -11,7 +14,9 @@ class ComplexEncoder(json.JSONEncoder):
 
 
 class Serialize:
-
+	"""
+	The class used to convert objects to JSON or Python Dict
+	"""
 	@staticmethod
 	def obj_to_dict(obj):
 		return json.loads(Serialize.obj_to_json(obj))
@@ -22,14 +27,21 @@ class Serialize:
 
 
 class Deserialize:
-
+	"""
+	The class used to convert JSON to Python Dict
+	"""
 	@staticmethod
 	def json_to_dict(json_str):
 		return json.loads(json_str)
 
 
 class EncoderDecoder:
-
+	"""
+	1.) The class using for base64 encoding and decoding byte objects
+	to and from strings
+	2.) The methods bytes_to_utf8str and utf8str_to_bytes are used externally,
+	other methods are used internally by those methods
+	"""
 	@staticmethod
 	def bytes_to_b64bytes(b: bytes) -> bytes:
 		return base64.b64encode(b)

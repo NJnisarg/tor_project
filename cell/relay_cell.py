@@ -1,4 +1,5 @@
-from typing import List, Dict, Any
+from typing import Dict, Any
+
 from crypto.crypto_constants import CryptoConstants as CC
 
 
@@ -93,10 +94,10 @@ class RelayExtendedPayload:
 
     def __init__(self, HLEN: int=None, HDATA=None):
         """
-		Constructor
-		:param HLEN: The Length of the HDATA
-		:param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
-		"""
+        Constructor
+        :param HLEN: The Length of the HDATA
+        :param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
+        """
         self.HLEN = HLEN
         self.HDATA = HDATA
 

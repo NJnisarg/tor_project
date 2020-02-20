@@ -1,4 +1,7 @@
 class CryptoConstants:
+	"""
+	The class with all the crypto constants from the Spec
+	"""
 	KEY_LEN = 16  # The length of the stream cipher's key, in bytes
 	DH_LEN = 128  # The number of bytes used to represent a member of Diffie Hellman group
 	DH_SEC_LEN = 128  # The number of bytes used in a Diffie-Hellman private key (x). The spec suggests 40 bytes but

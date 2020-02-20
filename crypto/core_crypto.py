@@ -8,7 +8,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from cell.control_cell import TapCHData
-from cell.serializers import Deserialize, Serialize, EncoderDecoder
+from cell.serializers import EncoderDecoder
 from crypto.crypto_constants import CryptoConstants
 
 
@@ -19,7 +19,7 @@ class CoreCryptoRSA:
 
 	# Constants used in the Tor Spec for RSA
 	RSA_FIXED_EXPONENT = 65537
-	RSA_KEY_SIZE = 1024
+	RSA_KEY_SIZE = 2048  # The Spec suggest 1024, but we violate it to avoid certain errors in hybrid_encrypt and hybrid_decrypt
 
 	@staticmethod
 	def generate_rsa_key_pair() -> (rsa.RSAPrivateKey, rsa.RSAPublicKey):
@@ -59,15 +59,15 @@ class CoreCryptoRSA:
 			return None
 
 	@staticmethod
-	def load_public_key_from_disc(pem_file: str) -> rsa.RSAPublicKey:
+	def load_public_key_from_disc(openssh_file: str) -> rsa.RSAPublicKey:
 		"""
 		Loads a pem file into a RSAPublicKey Object.
-		:param pem_file: The file containing the public RSA key
+		:param openssh_file: The file containing the public RSA key
 		:return: RSAPublicKey Object.
 		"""
 
 		try:
-			with open(pem_file, "rb") as key_file:
+			with open(openssh_file, "rb") as key_file:
 				public_key = serialization.load_ssh_public_key(
 					key_file.read(),
 					backend=default_backend()
@@ -99,25 +99,24 @@ class CoreCryptoRSA:
 		:param pk: The RSA public to encrypt the message with
 		:return: The object TapCHData that has the client handshake data
 		"""
-		# First convert the message to a byte array so that we can manipulate it
+		# First convert the message to a byte array so that we can slice it etc.
 		message = bytearray(message)
 
 		if len(message) <= CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN:
 			# Then encrypt the message using the onion key
 			p = pk.encrypt(message,
-							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
-							label=None))
+							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None))
 
 			# Create the TAP_H_DATA object
 			padding_bytes = bytes(CryptoConstants.PK_PAD_LEN)
 			tap_h_data = TapCHData(EncoderDecoder.bytes_to_utf8str(padding_bytes), None, EncoderDecoder.bytes_to_utf8str(p), None)
+
 		else:
 			k = bytearray(os.urandom(CryptoConstants.KEY_LEN))
 			m1 = message[0:CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN - CryptoConstants.KEY_LEN]
 			m2 = message[CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN - CryptoConstants.KEY_LEN:]
 			p1 = pk.encrypt(bytes(k + m1),
-			                padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
-			                             label=None))
+							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None))
 
 			nonce = bytes(CryptoConstants.KEY_LEN)  # all bytes are 0, nonce is the IV
 			cipher = Cipher(algorithms.AES(k), modes.CTR(nonce), backend=default_backend())
@@ -132,21 +131,22 @@ class CoreCryptoRSA:
 	def hybrid_decrypt(h_data, pk: rsa.RSAPrivateKey) -> bytes:
 		"""
 		This method is the hybrid decrypt outlined in the Tor spec 0.4 section
-		:param message: The message to be decrypted
+		:param h_data: The handshake data object of type TapCHData
 		:param pk: The RSA private key to decrypt the message with
-		:return: The decrypted message (json string)
+		:return: The decrypted message in bytes
 		"""
-
-		# x is now a dictionary
 
 		if h_data.SYMKEY is None:
 			return_message = "hi"  # pk.decrypt(x["GX1"], padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()),
 			#                          algorithm=hashes.SHA256(), label=None))
 		else:
+			# Get the params of in bytes form
 			gx1 = EncoderDecoder.utf8str_to_bytes(h_data.GX1)
 			gx2 = EncoderDecoder.utf8str_to_bytes(h_data.GX2)
 			sym_key = EncoderDecoder.utf8str_to_bytes(h_data.SYMKEY)
 			padding_bytes = EncoderDecoder.utf8str_to_bytes(h_data.PADDING)
+
+			# Decryption begins
 			km1 = pk.decrypt(gx1,
 							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
 							label=None))
@@ -156,8 +156,8 @@ class CoreCryptoRSA:
 			decryptor = cipher.decryptor()
 			m2 = decryptor.update(gx2) + decryptor.finalize()
 
+			# Return the concatenated message
 			return_message = m1 + m2
-			print(return_message)
 		return return_message
 
 	@staticmethod
@@ -165,7 +165,7 @@ class CoreCryptoRSA:
 		"""
 		This method is the key derivative outlined in the Tor spec section 5.2.1
 		:param message: The message to be used to carry out KDF
-		:return: The output
+		:return: The kdf dict
 		"""
 
 		hkdf = HKDF(
@@ -222,12 +222,12 @@ class CoreCryptoDH:
 		# Generate the private key ==> x
 		x = CoreCryptoDH.dh_parameters.generate_private_key()
 		x_bytes = x.private_bytes(encoding=serialization.Encoding.PEM, format=serialization.PrivateFormat.PKCS8,
-		                          encryption_algorithm=serialization.NoEncryption())
+								encryption_algorithm=serialization.NoEncryption())
 
 		# Also create the public key ==> gx
 		gx = x.public_key()
 		gx_bytes = gx.public_bytes(encoding=serialization.Encoding.PEM,
-		                           format=serialization.PublicFormat.SubjectPublicKeyInfo)
+									format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
 		return x, x_bytes, gx, gx_bytes
 

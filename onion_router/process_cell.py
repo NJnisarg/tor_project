@@ -94,12 +94,10 @@ class ProcessCell:
         hlen, hdata = Processor.process_created_cell_for_extended(created_cell)
 
         # Create extended cell
-        extended_cell = Builder.build_extended_cell(self.circ_id, hlen, hdata)
+        extended_cell = Builder.build_extended_cell_from_created_cell(self.circ_id, hlen, hdata)
 
         # send extended to conn
         self.conn.sendall(Serialize.obj_to_json(extended_cell).encode('utf-8'))
         print("Extended cell sent")
 
         return 0
-
-

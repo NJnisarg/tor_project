@@ -1,10 +1,9 @@
 import select
+import threading
 
 from cell.serializers import Deserialize
 from connection.node import Node
 from connection.skt import Skt
-import threading
-
 from onion_router.process_cell import ProcessCell
 
 

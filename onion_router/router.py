@@ -1,6 +1,7 @@
+import threading
+
 from connection.skt import Skt
 from onion_router.circuit import Circuit
-import threading
 
 
 class OnionRouter:
