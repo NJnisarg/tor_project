@@ -23,7 +23,7 @@ class ProcessCell:
         self.cmd_to_func = {
             Cell.CMD_ENUM['CREATE2']: self.handle_create_cell,
             Cell.CMD_ENUM['RELAY']: self.handle_relay_cell,
-            Cell.CMD_ENUM['CREATED2']: self.handle_created_cell
+            # Cell.CMD_ENUM['CREATED2']: self.handle_created_cell
         }  # A lookup for the function to be called based on the cell
         self.sending_skt = sending_skt
         self.node = node
@@ -55,29 +55,32 @@ class ProcessCell:
             return 1
 
     def handle_relay_cell(self):
-        relaycmd_to__func = {
-            RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND']: self.handle_relay_extend_cell
+        relaycmd_to_func = {
+            RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND']: self.handle_relay_extend_cell,
+            RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2']: self.handle_relay_extend_cell
         }
 
         if self.sending_skt == self.conn:
-            return relaycmd_to__func[self.cell_dict['PAYLOAD']['RELAY_CMD_ENUM']]()
+            return relaycmd_to_func[self.cell_dict['PAYLOAD']['RELAY_CMD']]()
 
         else:
             print("Some error")
             return 1
 
     def handle_relay_extend_cell(self):
-        extend_cell = Parser.extend2_parse_create_cell(self.cell_dict)
+        extend_cell = Parser.parse_extend_cell(self.cell_dict)
         # Assume process extend2 cell returns the address and port of next hop node
         # address, port will be in LSPEC
         # extend2_process_create_cell function needs to be changed accordingly
-        addr, port, htype, hlen, hdata = Processor.extend2_process_create_cell(extend_cell, self.node.onion_key_pri)
+        addr, port, htype, hlen, hdata = Processor.process_extend_cell(extend_cell, self.node.onion_key_pri)
 
         # Connect with next node
-        self.skt.client_connect(addr, port)
+        print(addr, port)
+        err_code = self.skt.client_connect(addr, port)
+        print(err_code)
 
         # Create a CREATE2 Cell.
-        create_cell = Builder.build_create_cell(self.circ_id, htype, hlen, hdata)
+        create_cell = Builder.build_create_cell_from_extend(self.circ_id, htype, hlen, hdata)
 
         # Sending a JSON String down the socket
         self.skt.client_send_data(Serialize.obj_to_json(create_cell).encode('utf-8'))
@@ -88,7 +91,7 @@ class ProcessCell:
         created_cell = Parser.parse_created_cell(dict_cell)
 
         # process created cell
-        hlen, hdata = Processor.process_created_cell(created_cell)
+        hlen, hdata = Processor.process_created_cell_for_extended(created_cell)
 
         # Create extended cell
         extended_cell = Builder.build_extended_cell(self.circ_id, hlen, hdata)

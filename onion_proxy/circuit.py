@@ -83,7 +83,11 @@ class Circuit:
 		"""
 		# First create a EXTEND2 Cell.
 		x, gx = CoreCryptoDH.generate_dh_priv_key()
-		extend_cell = Builder.extend2_build_create_cell('TAP', x, gx, self.circ_id, self.node_container[2].onion_key_pub)
+		# For hop2 we get its IP:port for LSPEC ==> Link specifier
+		hop2_ip = str(self.node_container[2].host)
+		hop2_port = str(self.node_container[2].port)
+		extend_cell = Builder.build_extend_cell('TAP', x, gx, self.circ_id, self.node_container[2].onion_key_pub, hop2_ip+':'+hop2_port)
+		print(Serialize.obj_to_json(extend_cell))
 
 		# Sending a JSON String down the socket
 		self.skt.client_send_data(Serialize.obj_to_json(extend_cell).encode('utf-8'))

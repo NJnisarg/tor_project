@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('/home/arpitha/IEEE/tor_3rdYear/tor_project')
+sys.path.append('/home/njnisarg/tor_project')
 
 from node_directory_service.node_directory_service import NodeDirectoryService
 from onion_proxy.circuit import Circuit
@@ -17,10 +17,10 @@ current_circ_id = 0
 # This function is the actual entry point that will be called
 def main():
 	print("Onion proxy started!")
-	skt = Skt('127.0.0.1', 12346)
+	skt = Skt('127.0.0.1', 4444)
 
 	print("Creating a circuit")
-	circ_id = Circuit.get_rand_circ_id()
+	circ_id = Circuit.get_rand_circ_id(current_circ_id)
 	node_container = NodeDirectoryService.get_rand_three_nodes()
 	circuit = Circuit(node_container, skt, circ_id)
 

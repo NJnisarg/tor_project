@@ -40,11 +40,27 @@ class RelayCellPayload:
 
     def reprJSON(self) -> Dict[str, Any]:
         return vars(self)
-    
-class Relay_Extend2_Payload:
 
-    def __init__(self, NPSEC,LSTPYE,LSLEN,HTYPE,HLEN,HDATA):
-       '''
+
+class RelayExtendPayload:
+
+    LSTYPE_ENUM = {
+        'TLS_TCP_IPV4': 0,
+        'TLS_TCP_IPV6': 1,
+        'Legacy_identity': 2,
+        'Ed25519_identity': 3
+    }
+
+    # Values in bytes
+    LSTYPE_LSLEN_ENUM = {
+        'TLS_TCP_IPV4': 6,
+        'TLS_TCP_IPV6': 16,
+        'Legacy_identity': 20,
+        'Ed25519_identity': 32
+    }
+
+    def __init__(self, NPSEC, LSTYPE, LSLEN, LSPEC, HTYPE, HLEN, HDATA):
+        """
         An EXTEND2 cell's relay payload contains:
         NSPEC(Number of link specifiers)     [1 byte]
         NSPEC times:
@@ -54,18 +70,18 @@ class Relay_Extend2_Payload:
         HTYPE(Client Handshake Type)         [2 bytes]
         HLEN(Client Handshake Data Len)     [2 bytes]
         HDATA(Client Handshake Data)         [HLEN bytes]
-        '''
-       self.NSPEC=NPSEC
-       self.LSTYPE=NPSEC*LSTYPE
-       self.LSLEN=NPSEC*LSLEN
-       self.LSPEC = NPSEC*LSPEC
-       self.HTYPE=HTYPE
-       self.HLEN=HLEN
-       self.HDATA=HDATA
-
+        """
+        self.NSPEC = 1  # We will always pass NSPEC = 1. If not ignore it and make it 1.
+        self.LSTYPE = LSTYPE
+        self.LSLEN = LSLEN
+        self.LSPEC = LSPEC
+        self.HTYPE = HTYPE
+        self.HLEN = HLEN
+        self.HDATA = HDATA
 
     def reprJSON(self) -> Dict[str, Any]:
-       return vars(self)
+        return vars(self)
+
 
 class RelayExtendedPayload:
 
@@ -74,7 +90,7 @@ class RelayExtendedPayload:
     """
 
     TAP_S_HANDSHAKE_LEN = CC.DH_LEN + CC.HASH_LEN
-    
+
     def __init__(self, HLEN: int=None, HDATA=None):
         """
 		Constructor
@@ -89,7 +105,7 @@ class RelayExtendedPayload:
 
 
 class RelayBeginPayload:
-    
+
     """
     The class representing Relay Begin Cell's payload object
     """

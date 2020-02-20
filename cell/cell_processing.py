@@ -1,35 +1,41 @@
 from typing import Dict
+
 from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
-from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload
-from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc
+from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload
 from connection.skt import Skt
+from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc
 
 
 class Builder:
 
 	@staticmethod
-	def build_create_cell(handshake_type: str, x ,gx, circ_id: int, onion_key) -> Cell:
+	def build_create_cell(handshake_type: str, x, gx, circ_id: int, onion_key) -> Cell:
 		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
 		# client_h_data = TapCHData("","","m1","m2")
-		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type], CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
+		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],
+		                                        CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
 		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
 		return create_cell
 
 	@staticmethod
-	def build_create_cell(circ_id: int, htype, hlen, hdata) -> Cell:
+	def build_create_cell_from_extend(circ_id: int, htype, hlen, hdata) -> Cell:
 		create_cell_payload = CreateCellPayload(htype, hlen, hdata)
 		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
 		return create_cell
 
 	@staticmethod
-	def extend2_build_create_cell(handshake_type: str, x, gx, circ_id: int, onion_key) -> Cell:
-		# client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
-		client_h_data = TapCHData("", "", "m1", "m2")
-		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
-		create_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, create_cell_payload)
-		return create_cell
-
+	def build_extend_cell(handshake_type: str, x, gx, circ_id: int, onion_key, LSPEC) -> Cell:
+		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
+		# client_h_data = TapCHData("", "", "m1", "m2")
+		extend_cell_payload = RelayExtendPayload(1, RelayExtendPayload.LSTYPE_ENUM['TLS_TCP_IPV4'],
+		                                         RelayExtendPayload.LSTYPE_LSLEN_ENUM['TLS_TCP_IPV4'], LSPEC,
+		                                         CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],
+		                                         CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
+		relay_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2'], 1, 0, "", 509,
+		                                      extend_cell_payload)
+		relay_extend_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
+		return relay_extend_cell
 
 	@staticmethod
 	def build_created_cell(y, gy, circ_id: int, gx: str) -> Cell:
@@ -51,16 +57,17 @@ class Builder:
 
 		# Construct extended2 payload
 		extended_cell_payload_relay = RelayExtendedPayload(RelayExtendedPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
-		
+
 		# Calculate digest from the extended2 payload
 		payload_dict = {
-			'HLEN' : extended_cell_payload_relay.HLEN,
-			'HDATA' : extended_cell_payload_relay.HDATA
+			'HLEN': extended_cell_payload_relay.HLEN,
+			'HDATA': extended_cell_payload_relay.HDATA
 		}
 		digest = CoreCryptoMisc.calculate_digest(payload_dict)
 
 		# Construct the Relay cell with extended2 payload which is the payload for the Cell class
-		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['EXTENDED2'], recognized, streamID, digest, Cell.PAYLOAD_LEN-11, extended_cell_payload_relay)
+		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['EXTENDED2'], recognized, streamID,
+		                                         digest, Cell.PAYLOAD_LEN - 11, extended_cell_payload_relay)
 		# Construct the actual cell
 		extended_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, extended_cell_payload)
 		return extended_cell
@@ -79,12 +86,12 @@ class Builder:
 		# Function to get payload from digest?
 
 		# Construct the Relay cell with extended2 payload which is the payload for the Cell class
-		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], False, 0, "", Cell.PAYLOAD_LEN - 11, relay_extended_cell_payload)
+		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], False, 0, "",
+		                                         Cell.PAYLOAD_LEN - 11, relay_extended_cell_payload)
 
 		# Construct the actual cell
 		extended_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, extended_cell_payload)
 		return extended_cell
-
 
 	@staticmethod
 	def build_begin_cell(addrport: str, flag_dict, circ_id: int, recognized, streamID) -> Cell:
@@ -92,22 +99,22 @@ class Builder:
 		i = 0
 		while i < 29:
 			flags = flags + '0'
-		
+
 		if flag_dict['IPV6_PREF'] == 1:
 			flags = flags + '1'
 		else:
 			flags = flags + '0'
-		
+
 		if flag_dict['IPV4_NOT_OK'] == 1:
 			flags = flags + '1'
 		else:
 			flags = flags + '0'
-		
+
 		if flag_dict['IPV6_OK'] == 1:
 			flags = flags + '1'
 		else:
 			flags = flags + '0'
-		
+
 		begin_cell_payload_relay = RelayBeginPayload(addrport, flags)
 
 		payload_dict = {
@@ -116,7 +123,8 @@ class Builder:
 		}
 		digest = CoreCryptoMisc.calculate_digest(payload_dict)
 
-		begin_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN'], recognized, streamID, digest, Cell.PAYLOAD_LEN-11, begin_cell_payload_relay)
+		begin_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN'], recognized, streamID,
+		                                      digest, Cell.PAYLOAD_LEN - 11, begin_cell_payload_relay)
 		begin_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, begin_cell_payload)
 		return begin_cell
 
@@ -133,16 +141,18 @@ class Parser:
 			return None
 
 		client_h_data = dict_cell['PAYLOAD']['HDATA']
-		client_h_data = TapCHData(client_h_data['PADDING'], client_h_data['SYMKEY'], client_h_data['GX1'], client_h_data['GX2'])
+		client_h_data = TapCHData(client_h_data['PADDING'], client_h_data['SYMKEY'], client_h_data['GX1'],
+		                          client_h_data['GX2'])
 
-		create_cell_payload = CreateCellPayload(dict_cell['PAYLOAD']['HTYPE'], dict_cell['PAYLOAD']['HLEN'], client_h_data)
+		create_cell_payload = CreateCellPayload(dict_cell['PAYLOAD']['HTYPE'], dict_cell['PAYLOAD']['HLEN'],
+		                                        client_h_data)
 
 		create_cell = Cell(dict_cell['CIRCID'], Cell.CMD_ENUM['CREATE2'], dict_cell['LENGTH'], create_cell_payload)
 
 		return create_cell
 
 	@staticmethod
-	def extend2_parse_create_cell(dict_cell: Dict) -> Cell:
+	def parse_extend_cell(dict_cell: Dict) -> Cell:
 
 		if 'CMD' not in dict_cell:
 			return None
@@ -150,13 +160,27 @@ class Parser:
 		if dict_cell['CMD'] != Cell.CMD_ENUM['RELAY']:
 			return None
 
-		client_h_data = dict_cell['PAYLOAD']['HDATA']
+		client_h_data = dict_cell['PAYLOAD']['Data']['HDATA']
 		client_h_data = TapCHData(client_h_data['PADDING'], client_h_data['SYMKEY'], client_h_data['GX1'],
-								  client_h_data['GX2'])
+		                          client_h_data['GX2'])
 
-		create_cell_payload = CreateCellPayload(dict_cell['PAYLOAD']['HTYPE'], dict_cell['PAYLOAD']['HLEN'],client_h_data)
-		create_cell = Cell(dict_cell['CIRCID'], Cell.CMD_ENUM['RELAY'], dict_cell['LENGTH'], create_cell_payload)
-		return create_cell
+		extend_cell_payload = RelayExtendPayload(dict_cell['PAYLOAD']['Data']['NSPEC'],
+		                                         dict_cell['PAYLOAD']['Data']['LSTYPE'],
+		                                         dict_cell['PAYLOAD']['Data']['LSLEN'],
+		                                         dict_cell['PAYLOAD']['Data']['LSPEC'],
+		                                         dict_cell['PAYLOAD']['Data']['HTYPE'],
+		                                         dict_cell['PAYLOAD']['Data']['HLEN'],
+		                                         client_h_data)
+		relay_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'],
+		                                      dict_cell['PAYLOAD']['RECOGNIZED'],
+		                                      dict_cell['PAYLOAD']['StreamID'],
+		                                      dict_cell['PAYLOAD']['Digest'],
+		                                      dict_cell['PAYLOAD']['Length'],
+		                                      extend_cell_payload)
+
+		relay_extend_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], relay_cell_payload)
+
+		return relay_extend_cell
 
 	@staticmethod
 	def parse_created_cell(dict_cell: Dict) -> Cell:
@@ -191,7 +215,9 @@ class Parser:
 
 		extended_cell_payload_relay = RelayExtendedPayload(dict_cell['PAYLOAD']['Data']['HLEN'], server_h_data)
 
-		extended_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'], dict_cell['PAYLOAD']['StreamID'],dict_cell['PAYLOAD']['Digest'], dict_cell['PAYLOAD']['Length'], extended_cell_payload_relay)
+		extended_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'],
+		                                         dict_cell['PAYLOAD']['StreamID'], dict_cell['PAYLOAD']['Digest'],
+		                                         dict_cell['PAYLOAD']['Length'], extended_cell_payload_relay)
 
 		extended_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], extended_cell_payload)
 
@@ -207,8 +233,11 @@ class Parser:
 		if dict_cell['PAYLOAD']['RELAY_CMD'] != RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']:
 			return None
 
-		begin_cell_payload_relay = RelayBeginPayload(dict_cell['PAYLOAD']['Data']['ADDRPORT'], dict_cell['PAYLOAD']['Data']['FLAGS'])
-		begin_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'], dict_cell['PAYLOAD']['StreamID'],dict_cell['PAYLOAD']['Digest'], dict_cell['PAYLOAD']['Length'], begin_cell_payload_relay)
+		begin_cell_payload_relay = RelayBeginPayload(dict_cell['PAYLOAD']['Data']['ADDRPORT'],
+		                                             dict_cell['PAYLOAD']['Data']['FLAGS'])
+		begin_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'],
+		                                      dict_cell['PAYLOAD']['StreamID'], dict_cell['PAYLOAD']['Digest'],
+		                                      dict_cell['PAYLOAD']['Length'], begin_cell_payload_relay)
 		begin_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], begin_cell_payload)
 
 		return begin_cell
@@ -226,13 +255,17 @@ class Processor:
 		return gx
 
 	@staticmethod
-	def extend2_process_create_cell(cell: Cell, private_onion_key):
-		create_cell_circid = cell.CIRCID
-		create_cell_cmd = cell.CMD
-		create_cell_payload_length = cell.LENGTH
-		create_cell_payload = cell.PAYLOAD
-		gx = CoreCryptoRSA.hybrid_decrypt(create_cell_payload.HDATA, private_onion_key)
-		return gx
+	def process_extend_cell(cell: Cell, private_onion_key):
+		extend_cell_payload = cell.PAYLOAD.Data
+		LSPEC = extend_cell_payload.LSPEC
+		addr = LSPEC.split(":")[0]
+		port = int(LSPEC.split(":")[1])
+
+		htype = extend_cell_payload.HTYPE
+		hlen = extend_cell_payload.HLEN
+		hdata = extend_cell_payload.HDATA
+
+		return addr, port, htype, hlen, hdata
 
 	@staticmethod
 	def process_created_cell(cell: Cell, required_circ_id: int, x: str):
@@ -250,7 +283,7 @@ class Processor:
 			return None
 
 	@staticmethod
-	def process_created_cell(cell: Cell):
+	def process_created_cell_for_extended(cell: Cell):
 		payload = cell.PAYLOAD
 		hlen = payload.HLEN
 		hdata = payload.HDATA
@@ -280,7 +313,8 @@ class Processor:
 			return None
 
 	@staticmethod
-	def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int, remote_host: str, remote_port: int):
+	def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int,
+	                       remote_host: str, remote_port: int):
 		"""
 		The processing function for begin cell is simple since it just creates
 		a socket between client(exit node) and server to connect to. It returns one of

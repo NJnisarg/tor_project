@@ -12,8 +12,9 @@ from onion_router.router import OnionRouter
 
 # This function is the actual entry point that will be called
 def main():
-    print("Starting the onion router")
-    node = NodeDirectoryService.get_nodes_from_csv()[1]
+    node_num = sys.argv[1]
+    print("Starting the onion router number:" + node_num)
+    node = NodeDirectoryService.get_nodes_from_csv()[int(node_num)]
     onion_router = OnionRouter(node)
     while True:
         onion_router.listen()

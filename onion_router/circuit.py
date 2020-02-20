@@ -21,7 +21,7 @@ class Circuit:
 		self.circ_id = circ_id
 		self.node = node
 		self.conn = conn
-		self.skt = Skt(node.host, 12345)  # Create a new socket object to talk to next hop
+		self.skt = Skt(node.host, node.port + 27)  # Create a new socket object to talk to next hop
 		self.session_key = session_key
 		self.routing_table = {}  # May or may not be used.
 
