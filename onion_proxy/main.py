@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('/home/njnisarg/tor_project')
+sys.path.append('/home/arpitha/IEEE/tor_3rdYear/tor_project')
 
 from node_directory_service.node_directory_service import NodeDirectoryService
 from onion_proxy.circuit import Circuit
@@ -13,15 +13,14 @@ from connection.skt import Skt
 
 current_circ_id = 0
 
+
 # This function is the actual entry point that will be called
 def main():
 	print("Onion proxy started!")
 	skt = Skt('127.0.0.1', 12346)
 
 	print("Creating a circuit")
-	global current_circ_id
-	circ_id = Circuit.get_rand_circ_id(current_circ_id)
-	current_circ_id = circ_id
+	circ_id = Circuit.get_rand_circ_id()
 	node_container = NodeDirectoryService.get_rand_three_nodes()
 	circuit = Circuit(node_container, skt, circ_id)
 
@@ -32,12 +31,18 @@ def main():
 		# Now we call create a cell and send it
 		err_code = circuit.create_circuit_hop1()
 		if err_code == 0:
-			print("Established the session key. DH Handshake successful")
+			print("Router 1: Established the session key. DH Handshake successful.")
+			err_code = circuit.create_circuit_hop2()
+			if err_code == 0:
+				print("Router 2: Established the session key. DH Handshake successful")
+			else:
+				print("Router 2: could not establish the session key. Closed the TCP Connection with the node 2")
 		else:
-			print("could not establish the session key. Closed the TCP Connection with the node 1")
+			print("Router 1: could not establish the session key. Closed the TCP Connection with the node 1")
 	else:
 		print("Error in establishing TCP connection to the node:")
 		exit(0)
+
 
 # Now setup the circuit incrementally with all the nodes
 main()

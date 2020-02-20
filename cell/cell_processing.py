@@ -17,12 +17,19 @@ class Builder:
 		return create_cell
 
 	@staticmethod
+	def build_create_cell(circ_id: int, htype, hlen, hdata) -> Cell:
+		create_cell_payload = CreateCellPayload(htype, hlen, hdata)
+		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
+		return create_cell
+
+	@staticmethod
 	def extend2_build_create_cell(handshake_type: str, x, gx, circ_id: int, onion_key) -> Cell:
 		# client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
 		client_h_data = TapCHData("", "", "m1", "m2")
 		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
 		create_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, create_cell_payload)
 		return create_cell
+
 
 	@staticmethod
 	def build_created_cell(y, gy, circ_id: int, gx: str) -> Cell:
@@ -54,6 +61,25 @@ class Builder:
 
 		# Construct the Relay cell with extended2 payload which is the payload for the Cell class
 		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['EXTENDED2'], recognized, streamID, digest, Cell.PAYLOAD_LEN-11, extended_cell_payload_relay)
+		# Construct the actual cell
+		extended_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, extended_cell_payload)
+		return extended_cell
+
+	@staticmethod
+	def build_extended_cell(circ_id: int, hlen, hdata) -> Cell:
+		relay_extended_cell_payload = RelayExtendedPayload(hlen, hdata)
+
+		# Calculate digest from the extended2 payload
+		# payload_dict = {
+		#     'HLEN': relay_extended_cell_payload.HLEN,
+		#     'HDATA': relay_extended_cell_payload.HDATA
+		# }
+		# digest = CoreCryptoMisc.calculate_digest(payload_dict)
+		# Using a digest here will ruin the code structure where the payload of a cell is another object
+		# Function to get payload from digest?
+
+		# Construct the Relay cell with extended2 payload which is the payload for the Cell class
+		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], False, 0, "", Cell.PAYLOAD_LEN - 11, relay_extended_cell_payload)
 
 		# Construct the actual cell
 		extended_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, extended_cell_payload)
@@ -92,7 +118,7 @@ class Builder:
 
 		begin_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN'], recognized, streamID, digest, Cell.PAYLOAD_LEN-11, begin_cell_payload_relay)
 		begin_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, begin_cell_payload)
-		return build_cell
+		return begin_cell
 
 
 class Parser:
@@ -224,7 +250,22 @@ class Processor:
 			return None
 
 	@staticmethod
+	def process_created_cell(cell: Cell):
+		payload = cell.PAYLOAD
+		hlen = payload.HLEN
+		hdata = payload.HDATA
+		return hlen, hdata
+
+	@staticmethod
 	def process_extended_cell(cell: Cell, required_circ_id: int, x: str):
+		"""
+		The processing functions for created and extended cells return
+		dictionaries created by kdf_tor() function.
+
+		For verifying KH, the kdf_dict has to be accessed. This is added
+		to the 'extended' cell handling and similar changes have been made
+		in the parsing and processing of 'created' cells
+		"""
 		if cell.CIRCID == required_circ_id:
 			extended_h_data = cell.PAYLOAD.Data.HDATA
 			gy = extended_h_data.GY
@@ -238,34 +279,23 @@ class Processor:
 		else:
 			return None
 
-"""
-The processing functions for created and extended cells return
-dictionaries created by kdf_tor() function.
+	@staticmethod
+	def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int, remote_host: str, remote_port: int):
+		"""
+		The processing function for begin cell is simple since it just creates
+		a socket between client(exit node) and server to connect to. It returns one of
+		two values:
+		-1: This implies an error and the exit node has to send a RELAY_END cell to the
+		previous onion router.
+		socket: This implies success and the exit node has to send a RELAY_CONNECTED cell to the
+		previous onion router, which is when the data transmission takes place.
+		"""
 
-For verifying KH, the kdf_dict has to be accessed. This is added
-to the 'extended' cell handling and similar changes have been made
-in the parsing and processing of 'created' cells
-"""
+		# Bind Socket to local host
+		socket = Skt(local_host, local_port)
 
-
-"""
-The processing function for begin cell is simple since it just creates
-a socket between client(exit node) and server to connect to. It returns one of
-two values:
--1: This implies an error and the exit node has to send a RELAY_END cell to the
-previous onion router.
-socket: This implies success and the exit node has to send a RELAY_CONNECTED cell to the
-previous onion router, which is when the data transmission takes place.
-"""
-
-@staticmethod
-def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int, remote_host: str, remote_port: int):
-
-	# Bind Socket to local host
-	socket = Skt(local_host, local_port)
-
-	# Connect socket to remote host
-	if socket.client_connect(remote_host, remote_port) == 0:
-		return socket
-	else:
-		return -1
+		# Connect socket to remote host
+		if socket.client_connect(remote_host, remote_port) == 0:
+			return socket
+		else:
+			return -1

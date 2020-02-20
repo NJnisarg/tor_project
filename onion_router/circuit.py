@@ -55,6 +55,10 @@ class Circuit:
 		:param socket: The socket object
 		:return: None
 		"""
+		# self.conn -> with proxy
+		# self.skt -> to next router
 		processcell = ProcessCell(cell, self.conn, self.skt, socket, self.node, self.circ_id)
-		processcell.cmd_to_func[cell['CMD']]()
+		flag = processcell.cmd_to_func[cell['CMD']]()
+		if flag != 0:
+			print("some error")
 		return None
