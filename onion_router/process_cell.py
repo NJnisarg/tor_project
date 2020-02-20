@@ -71,13 +71,6 @@ class ProcessCell:
 	def handle_relay_extend_cell(self):
 		if not self.is_last_node:
 			extend_cell = Parser.parse_extend_cell(self.cell_dict)
-			addr, port, htype, hlen, hdata = Processor.process_extend_cell(extend_cell, self.node.onion_key_pri)
-
-			# Connect with next node
-			print(addr, port)
-			err_code = self.skt.client_connect(addr, port)
-			print(err_code)
-
 			# Sending a JSON String down the socket
 			self.skt.client_send_data(Serialize.obj_to_json(extend_cell).encode('utf-8'))
 
