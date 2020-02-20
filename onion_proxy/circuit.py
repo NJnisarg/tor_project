@@ -36,7 +36,7 @@ class Circuit:
 
 	def open_connection(self, hop_i: int) -> int:
 		"""
-
+		Opens a TCP connection to ith hop in the node container
 		:param hop_i: The index of the node in the node container that the client wants to connect to
 		:return: Returns a status code. 0 --> Success and -1 means error
 		"""
@@ -101,6 +101,39 @@ class Circuit:
 
 		self.session_key02 = Processor.process_extended_cell(extended_cell, self.circ_id, x_bytes)
 		if self.session_key02 is None:
+			self.skt.close()
+			return -1
+
+		return 0
+
+	def create_circuit_hop3(self) -> int:
+		"""
+		The function to setup circuit with the third hop in the circuit. Creates the EXTEND/EXTEND2 cell and sends it
+		down the socket. It assumes that the open_connection was called on the first node and the socket is connected
+		to the first node, and that to the second node
+		:return: Returns a status code. 0 --> Success DH Handshake and -1 --> Means error in processing the cell or the DH Handshake.
+		On error it closes the socket to node 3.
+		"""
+		# First create a EXTEND2 Cell.
+		x, x_bytes, gx, gx_bytes = CoreCryptoDH.generate_dh_priv_key()
+
+		# For hop3 we get its IP:port for LSPEC ==> Link specifier
+		hop3_ip = str(self.node_container[3].host)
+		hop3_port = str(self.node_container[3].port)
+		extend_cell = Builder.build_extend_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[3].onion_key_pub, hop3_ip+':'+hop3_port)
+
+		print(Serialize.obj_to_json(extend_cell))
+
+		# Sending a JSON String down the socket
+		self.skt.client_send_data(Serialize.obj_to_json(extend_cell).encode('utf-8'))
+
+		# Get the extended cell in response and convert it to python Cell Object
+		recv_data = self.skt.client_recv_data().decode('utf-8')
+		dict_cell = Deserialize.json_to_dict(recv_data)
+		extended_cell = Parser.parse_extended_cell(dict_cell)
+
+		self.session_key03 = Processor.process_extended_cell(extended_cell, self.circ_id, x_bytes)
+		if self.session_key03 is None:
 			self.skt.close()
 			return -1
 

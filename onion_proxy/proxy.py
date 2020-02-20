@@ -3,7 +3,7 @@ from connection.skt import Skt
 
 class OnionProxy:
 
-    def __init__(self, node=None):
+    def __init__(self, node):
         """
         The Constructor for Onion Router
         :param node: The node Object that will be used for the router

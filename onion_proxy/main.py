@@ -33,9 +33,18 @@ def main():
 		err_code = circuit.create_circuit_hop1()
 		if err_code == 0:
 			print("Router 1: Established the session key. DH Handshake successful.")
+			print("The session key for router 1:", circuit.session_key01)
 			err_code = circuit.create_circuit_hop2()
 			if err_code == 0:
 				print("Router 2: Established the session key. DH Handshake successful")
+				print("The session key for router 2:", circuit.session_key02)
+
+				err_code = circuit.create_circuit_hop3()
+				if err_code == 0:
+					print("Router 3: Established the session key. DH Handshake successful")
+					print("The session key for router 3:", circuit.session_key03)
+				else:
+					print("Router 3: could not establish the session key. Closed the TCP Connection with the node 3")
 			else:
 				print("Router 2: could not establish the session key. Closed the TCP Connection with the node 2")
 		else:
