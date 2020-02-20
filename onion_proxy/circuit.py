@@ -55,8 +55,8 @@ class Circuit:
 		On error it closes the socket to node 1
 		"""
 		# First create a CREATE2 Cell.
-		x, gx = CoreCryptoDH.generate_dh_priv_key()
-		create_cell = Builder.build_create_cell('TAP', x, gx, self.circ_id, self.node_container[1].onion_key_pub)
+		x, x_bytes, gx, gx_bytes = CoreCryptoDH.generate_dh_priv_key()
+		create_cell = Builder.build_create_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[1].onion_key_pub)
 
 		# Sending a JSON String down the socket
 		self.skt.client_send_data(Serialize.obj_to_json(create_cell).encode('utf-8'))
@@ -66,7 +66,7 @@ class Circuit:
 		dict_cell = Deserialize.json_to_dict(recv_data)
 		created_cell = Parser.parse_created_cell(dict_cell)
 
-		self.session_key01 = Processor.process_created_cell(created_cell, self.circ_id, x)
+		self.session_key01 = Processor.process_created_cell(created_cell, self.circ_id, x_bytes)
 		if self.session_key01 is None:
 			self.skt.close()
 			return -1
@@ -82,11 +82,13 @@ class Circuit:
 		On error it closes the socket to node 2.
 		"""
 		# First create a EXTEND2 Cell.
-		x, gx = CoreCryptoDH.generate_dh_priv_key()
+		x, x_bytes, gx, gx_bytes = CoreCryptoDH.generate_dh_priv_key()
+
 		# For hop2 we get its IP:port for LSPEC ==> Link specifier
 		hop2_ip = str(self.node_container[2].host)
 		hop2_port = str(self.node_container[2].port)
-		extend_cell = Builder.build_extend_cell('TAP', x, gx, self.circ_id, self.node_container[2].onion_key_pub, hop2_ip+':'+hop2_port)
+		extend_cell = Builder.build_extend_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[2].onion_key_pub, hop2_ip+':'+hop2_port)
+
 		print(Serialize.obj_to_json(extend_cell))
 
 		# Sending a JSON String down the socket
@@ -97,7 +99,7 @@ class Circuit:
 		dict_cell = Deserialize.json_to_dict(recv_data)
 		extended_cell = Parser.parse_extended_cell(dict_cell)
 
-		self.session_key02 = Processor.process_extended_cell(extended_cell, self.circ_id, x)
+		self.session_key02 = Processor.process_extended_cell(extended_cell, self.circ_id, x_bytes)
 		if self.session_key02 is None:
 			self.skt.close()
 			return -1

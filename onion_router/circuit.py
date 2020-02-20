@@ -36,7 +36,7 @@ class Circuit:
 			read_sockets, write_socket, error_socket = select.select(sockets_list, [], [])
 			for socket in read_sockets:
 				# Get the cell from previous hop
-				cell = str(socket.recv(1024).decode())
+				cell = str(socket.recv(65536).decode())
 				if cell is None or cell == "":
 					continue
 

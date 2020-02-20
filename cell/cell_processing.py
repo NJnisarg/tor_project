@@ -5,16 +5,17 @@ from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCe
 from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload
 from connection.skt import Skt
 from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc
+from cell.serializers import EncoderDecoder
 
 
 class Builder:
 
 	@staticmethod
-	def build_create_cell(handshake_type: str, x, gx, circ_id: int, onion_key) -> Cell:
-		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
-		# client_h_data = TapCHData("","","m1","m2")
+	def build_create_cell(handshake_type: str, x_bytes: bytes, gx_bytes: bytes, circ_id: int, onion_key) -> Cell:
+		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx_bytes, onion_key)
 		create_cell_payload = CreateCellPayload(CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],
-		                                        CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
+												CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type],
+												client_h_data)
 		create_cell = Cell(circ_id, Cell.CMD_ENUM['CREATE2'], Cell.PAYLOAD_LEN, create_cell_payload)
 		return create_cell
 
@@ -25,26 +26,31 @@ class Builder:
 		return create_cell
 
 	@staticmethod
-	def build_extend_cell(handshake_type: str, x, gx, circ_id: int, onion_key, LSPEC) -> Cell:
-		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx, onion_key)
-		# client_h_data = TapCHData("", "", "m1", "m2")
-		extend_cell_payload = RelayExtendPayload(1, RelayExtendPayload.LSTYPE_ENUM['TLS_TCP_IPV4'],
-		                                         RelayExtendPayload.LSTYPE_LSLEN_ENUM['TLS_TCP_IPV4'], LSPEC,
-		                                         CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],
-		                                         CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type], client_h_data)
-		relay_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2'], 1, 0, "", 509,
-		                                      extend_cell_payload)
+	def build_extend_cell(handshake_type: str, x_bytes: bytes, gx_bytes: bytes, circ_id: int, onion_key, LSPEC) -> Cell:
+		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx_bytes, onion_key)
+		NSPEC = 1  # Always keep this 1 to avoid going to hell
+		extend_cell_payload = RelayExtendPayload(NSPEC,
+												RelayExtendPayload.LSTYPE_ENUM['TLS_TCP_IPV4'],
+												RelayExtendPayload.LSTYPE_LSLEN_ENUM['TLS_TCP_IPV4'],
+												LSPEC,
+												CreateCellPayload.CREATE_HANDSHAKE_TYPE[handshake_type],
+												CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type],
+												client_h_data)
+
+		relay_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2'], 1, 0, "", 509, extend_cell_payload)
+
 		relay_extend_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
+
 		return relay_extend_cell
 
 	@staticmethod
-	def build_created_cell(y, gy, circ_id: int, gx: str) -> Cell:
+	def build_created_cell(y_bytes: bytes, gy_bytes: bytes, circ_id: int, gx_bytes: bytes) -> Cell:
 		# y, gy = CoreCryptoDH.generate_dh_priv_key()
-		gxy = CoreCryptoDH.compute_dh_shared_key(y, gx)
-		print(gxy)
+		gxy = CoreCryptoDH.compute_dh_shared_key(gx_bytes, y_bytes)
+		print("shared_key:", gxy)
 		kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 		print(kdf_dict)
-		server_h_data = TapSHData(gy, kdf_dict['KH'])
+		server_h_data = TapSHData(EncoderDecoder.bytes_to_utf8str(gy_bytes), kdf_dict['KH'])
 		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
 		created_cell = Cell(circ_id, Cell.CMD_ENUM['CREATED2'], Cell.PAYLOAD_LEN, created_cell_payload)
 		return created_cell
@@ -247,9 +253,6 @@ class Processor:
 
 	@staticmethod
 	def process_create_cell(cell: Cell, private_onion_key):
-		create_cell_circid = cell.CIRCID
-		create_cell_cmd = cell.CMD
-		create_cell_payload_length = cell.LENGTH
 		create_cell_payload = cell.PAYLOAD
 		gx = CoreCryptoRSA.hybrid_decrypt(create_cell_payload.HDATA, private_onion_key)
 		return gx
@@ -268,11 +271,12 @@ class Processor:
 		return addr, port, htype, hlen, hdata
 
 	@staticmethod
-	def process_created_cell(cell: Cell, required_circ_id: int, x: str):
+	def process_created_cell(cell: Cell, required_circ_id: int, x_bytes: bytes):
 		if cell.CIRCID == required_circ_id:
 			created_h_data = cell.PAYLOAD.HDATA
-			gy = created_h_data.GY
-			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
+			gy_str = created_h_data.GY
+			gy_bytes = EncoderDecoder.utf8str_to_bytes(gy_str)
+			gxy = CoreCryptoDH.compute_dh_shared_key(gy_bytes, x_bytes)
 			kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 			if created_h_data.KH == kdf_dict['KH']:
 				print("Handshake successful!")
@@ -290,7 +294,7 @@ class Processor:
 		return hlen, hdata
 
 	@staticmethod
-	def process_extended_cell(cell: Cell, required_circ_id: int, x: str):
+	def process_extended_cell(cell: Cell, required_circ_id: int, x_bytes: bytes):
 		"""
 		The processing functions for created and extended cells return
 		dictionaries created by kdf_tor() function.
@@ -301,8 +305,9 @@ class Processor:
 		"""
 		if cell.CIRCID == required_circ_id:
 			extended_h_data = cell.PAYLOAD.Data.HDATA
-			gy = extended_h_data.GY
-			gxy = CoreCryptoDH.compute_dh_shared_key(gy, x)
+			gy_str = extended_h_data.GY
+			gy_bytes = EncoderDecoder.utf8str_to_bytes(gy_str)
+			gxy = CoreCryptoDH.compute_dh_shared_key(gy_bytes, x_bytes)
 			kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 			if extended_h_data.KH == kdf_dict['KH']:
 				print("Handshake successful!")

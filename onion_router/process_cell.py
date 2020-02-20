@@ -41,11 +41,11 @@ class ProcessCell:
 
             # Process the create cell
             gx = Processor.process_create_cell(create_cell, self.node.onion_key_pri)
-            y, gy = CoreCryptoDH.generate_dh_priv_key()
+            y, y_bytes, gy, gy_bytes = CoreCryptoDH.generate_dh_priv_key()
 
             # After processing the create cell, we make a created cell
             # and send it down the socket
-            created_cell = Builder.build_created_cell(y, gy, self.circ_id, gx)
+            created_cell = Builder.build_created_cell(y_bytes, gy_bytes, self.circ_id, gx)
             print(created_cell)
             self.conn.sendall(Serialize.obj_to_json(created_cell).encode('utf-8'))
             print("Created cell sent")

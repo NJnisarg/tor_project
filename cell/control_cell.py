@@ -60,7 +60,7 @@ class TapCHData:
 	The Object representing the TAP Handshake's client data
 	"""
 
-	def __init__(self, PADDING: str=None, SYMKEY: str=None, GX1:str=None, GX2: str=None):
+	def __init__(self, PADDING:str=None, SYMKEY:str=None, GX1:str=None, GX2:str=None):
 		"""
 		Constructor
 		:param PADDING: PK_PAD_LEN size of padding
@@ -68,10 +68,10 @@ class TapCHData:
 		:param GX1: First part of DH g^x
 		:param GX2: Second part of DH g^x
 		"""
-		self.GX2 = GX2
-		self.GX1 = GX1
-		self.SYMKEY = SYMKEY
 		self.PADDING = PADDING
+		self.SYMKEY = SYMKEY
+		self.GX1 = GX1
+		self.GX2 = GX2
 
 	def reprJSON(self) -> Dict[str, Any]:
 		return vars(self)

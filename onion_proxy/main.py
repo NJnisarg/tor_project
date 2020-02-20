@@ -17,11 +17,12 @@ current_circ_id = 0
 # This function is the actual entry point that will be called
 def main():
 	print("Onion proxy started!")
-	skt = Skt('127.0.0.1', 4444)
 
 	print("Creating a circuit")
 	circ_id = Circuit.get_rand_circ_id(current_circ_id)
 	node_container = NodeDirectoryService.get_rand_three_nodes()
+	skt = Skt(node_container[0].host, node_container[0].port)
+
 	circuit = Circuit(node_container, skt, circ_id)
 
 	# Open a TCP connection to first node in the circuit
