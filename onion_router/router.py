@@ -6,18 +6,15 @@ from onion_router.circuit import Circuit
 
 class OnionRouter:
 
-    def __init__(self, node=None, is_exit_node=True):
+    def __init__(self, node=None):
         """
         The Constructor for Onion Router
-        :param node: The node Object that will be used for the router
-        :param is_exit_node: The Policy for the node. Defaults to true
+        :param node: The node Object that will be used for the router.
         """
         self.node = node
         self.skt = Skt(node.host, node.port)  # The Socket object for the router to get new connection
-        self.is_exit_node = is_exit_node
         self.circuits_list = []  # The list of circuits
         self.circuits_threads = []  # The list of threads corresponding to circuits
-        self.routing_table = {}  # Not used right now, might remove it
         self.current_circ_id = 0  # Holds the circuit id for the router
 
     def get_rand_circ_id(self) -> int:
@@ -41,7 +38,7 @@ class OnionRouter:
 
     def accept(self):
         """
-        Accept a socket connection function
+        Accept a socket connection and start a new circuit thread
         :return: -1 if error comes
         """
 
