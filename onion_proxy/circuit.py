@@ -1,11 +1,12 @@
-from typing import List
-from struct import pack
 from ipaddress import ip_address
+from struct import pack
+from typing import List
+
+from cell.cell_processing import Builder, Parser, Processor
+from cell.serializers import ComplexStructEncoder
 from connection.node import Node
 from connection.skt import Skt
 from crypto.core_crypto import CoreCryptoDH
-from cell.cell_processing import Builder, Parser, Processor
-from cell.serializers import Serialize, Deserialize, ComplexStructEncoder
 
 
 class Circuit:
@@ -138,3 +139,30 @@ class Circuit:
 			return -1
 
 		return 0
+
+	def begin_end_destination_stream(self, ip_addr:str, port:int=80):
+
+		addrport = pack('!IH', int(ip_address(ip_addr)), port)
+		flag_dict = {
+			'IPV6_PREF': 0,
+			'IPV4_NOT_OK': 0,
+			'IPV6_OK': 1
+		}  # Need to set the flag according to the spec. But for now its fine
+
+		# Build a begin cell to send to the exit node
+		begin_cell = Builder.build_begin_cell(addrport, flag_dict, self.circ_id, 0, 1, self.session_key01,
+											self.session_key02, self.session_key03)
+
+		# Send the begin cell down the first hop
+		# Sending a JSON String down the socket
+		self.skt.client_send_data(ComplexStructEncoder.encode(begin_cell))
+
+		# Wait for the relay_connected cell to arrive
+		# Get the relay_connected cell in response and convert it to python Cell Object
+		cell_bytes = self.skt.client_recv_data()
+		relay_connected_cell = Parser.parse_relay_connected_cell(cell_bytes)
+
+		if relay_connected_cell is not None:
+			return 0
+		else:
+			return -1

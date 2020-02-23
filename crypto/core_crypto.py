@@ -1,4 +1,5 @@
 import os
+from typing import Dict
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -8,7 +9,6 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from cell.control_cell import TapCHData
-from cell.serializers import EncoderDecoder
 from crypto.crypto_constants import CryptoConstants
 
 
@@ -258,6 +258,74 @@ class CoreCryptoDH:
 		shared_key = x.exchange(gy)
 
 		return shared_key
+
+
+class CoreCryptoSymmetric:
+
+	@staticmethod
+	def encrypt_from_origin(message: bytes, kdf_dict1: Dict, kdf_dict2: Dict, kdf_dict3: Dict) -> bytes:
+		"""
+		The function encrypts a given message as bytes assuming the encryption start from the OP.
+		It carries out all the 3 layers of encryption from OP upto Last OR
+		:param message: The message in bytes to be encrypted
+		:param kdf_dict1: The KDF Dict containing KF ==> Forward Key for encryption. KF is expected to be in b64 encoded utf8 string
+		:param kdf_dict2: The KDF Dict containing KF ==> Forward Key for encryption. KF is expected to be in b64 encoded utf8 string
+		:param kdf_dict3: The KDF Dict containing KF ==> Forward Key for encryption. KF is expected to be in b64 encoded utf8 string
+		:return: Bytes encrypted. You need to convert it to string if you want. Please use bytes_to_utf8str function for conversion
+		"""
+		# The init vector for CTR mode
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		# The arr of dicts to iterate over
+		kdf_dict_arr = [kdf_dict1, kdf_dict2, kdf_dict3]
+		encryptor = None
+
+		# iteratively encrypting
+		for i in range(0, 3):
+			kf = kdf_dict_arr[i]['Kf']
+			cipher = Cipher(algorithms.AES(kf), modes.CTR(init_vector), backend=default_backend())
+			encryptor = cipher.encryptor()
+			message = encryptor.update(message)
+
+		# Finalize
+		message = message + encryptor.finalize()
+
+		# Return encrypted bytes
+		return message
+
+	@staticmethod
+	def decrypt_for_hop(message: bytes, kdf_dict: Dict) -> bytes:
+		"""
+		The function to decrypt a message for a given hop
+		:param message: The message to decrypt
+		:param kdf_dict: The dict kdf_dict
+		:return: The decryted bytes
+		"""
+
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		kf = kdf_dict['Kf']
+		cipher = Cipher(algorithms.AES(kf), modes.CTR(init_vector), backend=default_backend())
+		decryptor = cipher.decryptor()
+		message = decryptor.update(message) + decryptor.finalize()
+
+		return message
+
+	@staticmethod
+	def decrypt_from_origin(message: bytes, kdf_dict1: Dict, kdf_dict2: Dict, kdf_dict3: Dict) -> bytes:
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		kdf_dict_arr = [kdf_dict1, kdf_dict2, kdf_dict3]
+		decryptor = None
+		for i in range(2, -1, -1):
+			kf = kdf_dict_arr[i]['Kf']
+			cipher = Cipher(algorithms.AES(kf), modes.CTR(init_vector), backend=default_backend())
+			decryptor = cipher.decryptor()
+			message = decryptor.update(message)
+
+		message = message + decryptor.finalize()
+
+		return message
 
 
 class CoreCryptoMisc:

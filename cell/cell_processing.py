@@ -6,7 +6,7 @@ from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
 from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload
 from connection.skt import Skt
-from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc, CryptoConstants as CC
+from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc, CoreCryptoSymmetric, CryptoConstants as CC
 
 
 class Builder:
@@ -142,7 +142,7 @@ class Builder:
 		return extended_cell
 
 	@staticmethod
-	def build_begin_cell(addrport: str, flag_dict, circ_id: int, recognized, streamID) -> Cell:
+	def build_begin_cell(addrport: bytes, flag_dict, circ_id: int, recognized: int, streamID: int, kdf_dict1: Dict, kdf_dict2: Dict, kdf_dict3: Dict) -> Cell:
 		"""
 		The method to build a Begin Cell
 		:param addrport:
@@ -152,36 +152,33 @@ class Builder:
 		:param streamID:
 		:return: The Begin Cell object
 		"""
-		flags = ''
-		i = 0
-		while i < 29:
-			flags = flags + '0'
+		flags = int(0)
+		flags |= flag_dict['IPV6_PREF']
+		flags |= (flag_dict['IPV4_NOT_OK'] << 1)
+		flags |= (flag_dict['IPV6_OK'] << 2)
 
-		if flag_dict['IPV6_PREF'] == 1:
-			flags = flags + '1'
-		else:
-			flags = flags + '0'
-
-		if flag_dict['IPV4_NOT_OK'] == 1:
-			flags = flags + '1'
-		else:
-			flags = flags + '0'
-
-		if flag_dict['IPV6_OK'] == 1:
-			flags = flags + '1'
-		else:
-			flags = flags + '0'
-
-		begin_cell_payload_relay = RelayBeginPayload(addrport, flags)
-
-		payload_dict = {
-			'ADDRPORT': addrport,
-			'FLAGS': flags
+		digest_dict = {
+			'addrPort': addrport,
+			'flags': flags,
+			'relayCMD': RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN'],
+			'recognized': recognized,
+			'streamID': streamID,
+			'relayPayloadLen': Cell.PAYLOAD_LEN - 11
 		}
-		digest = CoreCryptoMisc.calculate_digest(payload_dict)
+		digest = b''  # CoreCryptoMisc.calculate_digest(digest_dict)
 
-		begin_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN'], recognized, streamID, digest, Cell.PAYLOAD_LEN - 11, begin_cell_payload_relay)
-		begin_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, begin_cell_payload)
+		# Encrypt the values by packing and unpacking
+		enc_addrport = CoreCryptoSymmetric.encrypt_from_origin(addrport, kdf_dict1, kdf_dict2, kdf_dict3)
+		enc_flags = unpack('!I', CoreCryptoSymmetric.encrypt_from_origin(pack('!I', flags), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		enc_relay_cmd = RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']  # unpack('!B', CoreCryptoSymmetric.encrypt_from_origin(pack('!B', RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		enc_recognized = unpack('!H', CoreCryptoSymmetric.encrypt_from_origin(pack('!H', recognized), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		enc_stream_id = unpack('!H', CoreCryptoSymmetric.encrypt_from_origin(pack('!H', streamID), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		enc_relay_payload_len = unpack('!H', CoreCryptoSymmetric.encrypt_from_origin(pack('!H', Cell.PAYLOAD_LEN - 11), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		enc_digest = CoreCryptoSymmetric.encrypt_from_origin(digest, kdf_dict1, kdf_dict2, kdf_dict3)
+
+		relay_begin_payload = RelayBeginPayload(enc_addrport, enc_flags)
+		relay_cell_payload = RelayCellPayload(enc_relay_cmd, enc_recognized, enc_stream_id, enc_digest, enc_relay_payload_len, relay_begin_payload)
+		begin_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
 		return begin_cell
 
 
@@ -310,25 +307,23 @@ class Parser:
 		return extended_cell
 
 	@staticmethod
-	def parse_begin_cell(dict_cell: Dict) -> Cell:
-		"""
-		The method to parse a Begin cell object
-		:param dict_cell: The python Dict version of a cell
-		:return: Return a well formed Begin Cell object
-		"""
-		if 'CMD' not in dict_cell:
-			return None
-		if dict_cell['CMD'] != Cell.CMD_ENUM['RELAY']:
-			return None
-		if dict_cell['PAYLOAD']['RELAY_CMD'] != RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']:
-			return None
+	def parse_encoded_begin_cell(cell_bytes: bytes) -> Cell:
+		cell_tuple = Parser.parse_basic_cell(cell_bytes)
+		relay_cell_payload_tuple = Parser.parse_encoded_relay_cell(cell_bytes)
 
-		begin_cell_payload_relay = RelayBeginPayload(dict_cell['PAYLOAD']['Data']['ADDRPORT'],
-													dict_cell['PAYLOAD']['Data']['FLAGS'])
-		begin_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'],
-											dict_cell['PAYLOAD']['StreamID'], dict_cell['PAYLOAD']['Digest'],
-											dict_cell['PAYLOAD']['Length'], begin_cell_payload_relay)
-		begin_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], begin_cell_payload)
+		fmt_str = '=6sI'
+		relay_begin_payload_tuple = unpack(fmt_str, relay_cell_payload_tuple[5][0:6+4])
+
+		relay_begin_payload = RelayBeginPayload(relay_begin_payload_tuple[0], relay_begin_payload_tuple[1])
+
+		relay_cell_payload = RelayCellPayload(relay_cell_payload_tuple[0],
+		                                      relay_cell_payload_tuple[1],
+		                                      relay_cell_payload_tuple[2],
+		                                      relay_cell_payload_tuple[3],
+		                                      relay_cell_payload_tuple[4],
+		                                      relay_begin_payload)
+
+		begin_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], relay_cell_payload)
 
 		return begin_cell
 
@@ -428,22 +423,29 @@ class Processor:
 			return None
 
 	@staticmethod
-	def process_begin_cell(cell: Cell, required_circ_id: int, streamID: int, local_host: str, local_port: int, remote_host: str, remote_port: int):
-		"""
-		The processing function for begin cell is simple since it just creates
-		a socket between client(exit node) and server to connect to. It returns one of
-		two values:
-		-1: This implies an error and the exit node has to send a RELAY_END cell to the
-		previous onion router.
-		socket: This implies success and the exit node has to send a RELAY_CONNECTED cell to the
-		previous onion router, which is when the data transmission takes place.
-		"""
+	def process_begin_cell(cell: Cell, kdf_dict: Dict) -> Tuple:
+		# Take the encrypted values from the cell
+		enc_recognized = cell.PAYLOAD.RECOGNIZED
+		enc_stream_id = cell.PAYLOAD.StreamID
+		enc_digest = cell.PAYLOAD.Digest
+		enc_length = cell.PAYLOAD.Length
+		enc_addrport = cell.PAYLOAD.Data.ADDRPORT
+		enc_flags = cell.PAYLOAD.Data.FLAGS
 
-		# Bind Socket to local host
-		socket = Skt(local_host, local_port)
+		# Remove one layer of onion skin
+		dec_recognized = unpack('!H', CoreCryptoSymmetric.decrypt_for_hop(pack('!H', enc_recognized), kdf_dict))[0]
+		dec_stream_id = unpack('!H', CoreCryptoSymmetric.decrypt_for_hop(pack('!H', enc_stream_id), kdf_dict))[0]
+		dec_digest = CoreCryptoSymmetric.decrypt_for_hop(enc_digest, kdf_dict)
+		dec_length = unpack('!H', CoreCryptoSymmetric.decrypt_for_hop(pack('!H', enc_length), kdf_dict))[0]
+		dec_addrport = CoreCryptoSymmetric.decrypt_for_hop(enc_addrport, kdf_dict)
+		dec_flags = unpack('!I', CoreCryptoSymmetric.decrypt_for_hop(pack('!I', enc_flags), kdf_dict))[0]
 
-		# Connect socket to remote host
-		if socket.client_connect(remote_host, remote_port) == 0:
-			return socket
-		else:
-			return -1
+		# Set the decrypted values
+		cell.PAYLOAD.RECOGNIZED = dec_recognized
+		cell.PAYLOAD.StreamID = dec_stream_id
+		cell.PAYLOAD.Digest = dec_digest
+		cell.PAYLOAD.Length = dec_length
+		cell.PAYLOAD.Data = RelayBeginPayload(dec_addrport, dec_flags)
+
+		# Return
+		return dec_recognized, cell

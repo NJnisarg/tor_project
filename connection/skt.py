@@ -31,6 +31,7 @@ class Skt:
 			self.skt.connect((remote_host, remote_port))
 			return 0
 		except Exception as e:
+			print(e)
 			return -1
 
 	def server_accept(self) -> int:

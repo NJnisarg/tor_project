@@ -1,12 +1,16 @@
 import selectors
+from ipaddress import IPv4Address
+from http.client import HTTPConnection
 
 from cell.cell import Cell
 from cell.cell_processing import Builder, Parser, Processor
 from cell.relay_cell import RelayCellPayload
-from cell.serializers import Deserialize, Serialize, ComplexStructEncoder
+from cell.serializers import ComplexStructEncoder
 from connection.node import Node
 from connection.skt import Skt
 from crypto.core_crypto import CoreCryptoDH
+
+from struct import pack, unpack
 
 
 class Circuit:
@@ -25,6 +29,8 @@ class Circuit:
 		self.skt = Skt(node.host, node.port + 27)  # Create a new socket object to talk to next hop
 		self.session_key = session_key
 		self.is_last_node = is_last_node
+		self.stream_ids = []
+		self.stream_skts = {}
 		self.sktSelector = selectors.DefaultSelector()  # The sktSelector object to select the Socket for IO
 
 		self.sktSelector.register(self.conn, selectors.EVENT_READ, 0)  # Register the conn socket with invocation on READ == RECV event
@@ -41,7 +47,8 @@ class Circuit:
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND']: self.handle_relay_extend_cell,
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2']: self.handle_relay_extend_cell,
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED']: self.handle_relay_extended_cell,
-			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2']: self.handle_relay_extended_cell
+			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2']: self.handle_relay_extended_cell,
+			RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']: self.handle_relay_begin_cell
 		}  # A lookup for the function to be called based on the relay cell
 
 	def main(self):
@@ -140,4 +147,28 @@ class Circuit:
 
 		return 2
 
-	# def handle_relay_begin_cell(self,cell_dict,direction):
+	def handle_relay_begin_cell(self,cell_bytes, direction):
+		begin_cell = Parser.parse_encoded_begin_cell(cell_bytes)
+		recognized, begin_cell = Processor.process_begin_cell(begin_cell, self.session_key)
+
+		if recognized == 0:
+			print("Recognized the begin cell!")
+
+			# Getting the IP and port
+			addrport = bytearray(begin_cell.PAYLOAD.Data.ADDRPORT)
+			ip_addr, port = unpack('!IH', addrport)
+			ip_addr = str(IPv4Address(ip_addr))
+
+			# Appending the stream ID to this circuit
+			stream_id = begin_cell.PAYLOAD.StreamID
+			self.stream_ids.append(stream_id)
+
+			# Creating the socket and connecting it to end host! Fuck yeah
+			conn = self.stream_skts[stream_id] = HTTPConnection(ip_addr, port)
+			conn.request("GET", "/")
+			res = conn.getresponse()
+			print(res.status, res.reason)
+
+		else:
+			print("Begin cell not for us. Lets pass it on!")
+			self.skt.client_send_data(ComplexStructEncoder.encode(begin_cell))
