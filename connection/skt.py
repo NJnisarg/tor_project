@@ -55,7 +55,7 @@ class Skt:
 		except Exception as e:
 			return -1
 
-	def client_send_data(self, data: str):
+	def client_send_data(self, data: bytes):
 		"""
 		The method to send data as client
 		:param data: The data in string format to be sent

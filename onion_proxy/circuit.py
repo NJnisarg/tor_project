@@ -1,9 +1,11 @@
 from typing import List
+from struct import pack
+from ipaddress import ip_address
 from connection.node import Node
 from connection.skt import Skt
 from crypto.core_crypto import CoreCryptoDH
 from cell.cell_processing import Builder, Parser, Processor
-from cell.serializers import Serialize, Deserialize
+from cell.serializers import Serialize, Deserialize, ComplexStructEncoder
 
 
 class Circuit:
@@ -59,12 +61,12 @@ class Circuit:
 		create_cell = Builder.build_create_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[1].onion_key_pub)
 
 		# Sending a JSON String down the socket
-		self.skt.client_send_data(Serialize.obj_to_json(create_cell).encode('utf-8'))
+		self.skt.client_send_data(ComplexStructEncoder.encode(create_cell))
+		# self.skt.client_send_data(Serialize.obj_to_json(create_cell).encode('utf-8'))
 
 		# Get the created cell in response and convert it to python Cell Object
-		recv_data = self.skt.client_recv_data().decode('utf-8')
-		dict_cell = Deserialize.json_to_dict(recv_data)
-		created_cell = Parser.parse_created_cell(dict_cell)
+		cell_bytes = self.skt.client_recv_data()
+		created_cell = Parser.parse_encoded_created_cell(cell_bytes)
 
 		self.session_key01 = Processor.process_created_cell(created_cell, self.circ_id, x_bytes)
 		if self.session_key01 is None:
@@ -85,19 +87,18 @@ class Circuit:
 		x, x_bytes, gx, gx_bytes = CoreCryptoDH.generate_dh_priv_key()
 
 		# For hop2 we get its IP:port for LSPEC ==> Link specifier
-		hop2_ip = str(self.node_container[2].host)
-		hop2_port = str(self.node_container[2].port)
-		extend_cell = Builder.build_extend_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[2].onion_key_pub, hop2_ip+':'+hop2_port)
+		hop2_ip = self.node_container[2].host
+		hop2_port = self.node_container[2].port
+		extend_cell = Builder.build_extend_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[2].onion_key_pub, hop2_ip, hop2_port)
 
-		print(Serialize.obj_to_json(extend_cell))
+		print(extend_cell)
 
 		# Sending a JSON String down the socket
-		self.skt.client_send_data(Serialize.obj_to_json(extend_cell).encode('utf-8'))
+		self.skt.client_send_data(ComplexStructEncoder.encode(extend_cell))
 
 		# Get the extended cell in response and convert it to python Cell Object
-		recv_data = self.skt.client_recv_data().decode('utf-8')
-		dict_cell = Deserialize.json_to_dict(recv_data)
-		extended_cell = Parser.parse_extended_cell(dict_cell)
+		cell_bytes = self.skt.client_recv_data()
+		extended_cell = Parser.parse_encoded_extended_cell(cell_bytes)
 
 		self.session_key02 = Processor.process_extended_cell(extended_cell, self.circ_id, x_bytes)
 		if self.session_key02 is None:
@@ -118,19 +119,18 @@ class Circuit:
 		x, x_bytes, gx, gx_bytes = CoreCryptoDH.generate_dh_priv_key()
 
 		# For hop3 we get its IP:port for LSPEC ==> Link specifier
-		hop3_ip = str(self.node_container[3].host)
-		hop3_port = str(self.node_container[3].port)
-		extend_cell = Builder.build_extend_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[3].onion_key_pub, hop3_ip+':'+hop3_port)
+		hop3_ip = self.node_container[3].host
+		hop3_port = self.node_container[3].port
+		extend_cell = Builder.build_extend_cell('TAP', x_bytes, gx_bytes, self.circ_id, self.node_container[3].onion_key_pub, hop3_ip, hop3_port)
 
-		print(Serialize.obj_to_json(extend_cell))
+		print(extend_cell)
 
 		# Sending a JSON String down the socket
-		self.skt.client_send_data(Serialize.obj_to_json(extend_cell).encode('utf-8'))
+		self.skt.client_send_data(ComplexStructEncoder.encode(extend_cell))
 
 		# Get the extended cell in response and convert it to python Cell Object
-		recv_data = self.skt.client_recv_data().decode('utf-8')
-		dict_cell = Deserialize.json_to_dict(recv_data)
-		extended_cell = Parser.parse_extended_cell(dict_cell)
+		cell_bytes = self.skt.client_recv_data()
+		extended_cell = Parser.parse_encoded_extended_cell(cell_bytes)
 
 		self.session_key03 = Processor.process_extended_cell(extended_cell, self.circ_id, x_bytes)
 		if self.session_key03 is None:

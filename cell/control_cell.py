@@ -27,6 +27,8 @@ class CreateCellPayload:
 		:param HLEN: The Length of the HDATA. For HTYPE = 'TAP', the value is TAP_C_HANDSHAKE_LEN defined in CellConstants
 		:param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
 		"""
+		self.FORMAT_STR = '=HH'+str(HLEN)+'s'
+		self.FORMAT_STR_ARR = ['HTYPE', 'HLEN', 'HDATA']
 		self.HTYPE = HTYPE
 		self.HLEN = HLEN
 		self.HDATA = HDATA
@@ -49,6 +51,8 @@ class CreatedCellPayload:
 		:param HLEN: The Length of the HDATA. For HTYPE = 'TAP', the value is TAP_S_HANDSHAKE_LEN defined in CellConstants
 		:param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
 		"""
+		self.FORMAT_STR = '=H' + str(HLEN) + 's'
+		self.FORMAT_STR_ARR = ['HLEN', 'HDATA']
 		self.HLEN = HLEN
 		self.HDATA = HDATA
 
@@ -69,6 +73,9 @@ class TapCHData:
 		:param GX1: First part of DH g^x
 		:param GX2: Second part of DH g^x
 		"""
+
+		self.FORMAT_STR = '='+str(CC.PK_PAD_LEN)+'s'+str(CC.KEY_LEN)+'s'+str(CC.PK_ENC_LEN - CC.PK_PAD_LEN - CC.KEY_LEN)+'s'+str(CC.DH_LEN-(CC.PK_ENC_LEN-CC.PK_PAD_LEN-CC.KEY_LEN))+'s'
+		self.FORMAT_STR_ARR = ['PADDING', 'SYMKEY', 'GX1', 'GX2']
 		self.PADDING = PADDING
 		self.SYMKEY = SYMKEY
 		self.GX1 = GX1
@@ -89,6 +96,8 @@ class TapSHData:
 		:param GY: The g^y part of the DH Handshake
 		:param KH: The Key derivative's hash value
 		"""
+		self.FORMAT_STR = '='+str(CC.DH_LEN)+'s'+str(CC.HASH_LEN)+'s'
+		self.FORMAT_STR_ARR = ['GY', 'KH']
 		self.GY = GY
 		self.KH = KH
 

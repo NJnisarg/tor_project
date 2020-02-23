@@ -1,11 +1,12 @@
-from typing import Dict
+from ipaddress import IPv4Address
+from struct import pack, unpack
+from typing import Dict, Tuple
 
 from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
 from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload
-from cell.serializers import EncoderDecoder
 from connection.skt import Skt
-from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc
+from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc, CryptoConstants as CC
 
 
 class Builder:
@@ -16,8 +17,7 @@ class Builder:
 	def build_create_cell(handshake_type: str, x_bytes: bytes, gx_bytes: bytes, circ_id: int, onion_key) -> Cell:
 		"""
 		The method used to build a Create/Create2 cell
-		:param handshake_type: The handshake type. TAP or ntor.
-		:param x_bytes: The diffie hellman private key as a bytes object
+ 		:param x_bytes: The diffie hellman private key as a bytes object
 		:param gx_bytes: The diffie hellman public key as a bytes object
 		:param circ_id: The circuit ID
 		:param onion_key: The onion key of the next hop used in hybrid_encrypt method
@@ -45,7 +45,7 @@ class Builder:
 		return create_cell
 
 	@staticmethod
-	def build_extend_cell(handshake_type: str, x_bytes: bytes, gx_bytes: bytes, circ_id: int, onion_key, lspec: str) -> Cell:
+	def build_extend_cell(handshake_type: str, x_bytes: bytes, gx_bytes: bytes, circ_id: int, onion_key, hop2_ip, hop2_port) -> Cell:
 		"""
 		The method used to build a Extend/Extend2 cell
 		:param handshake_type: The handshake type. TAP or ntor.
@@ -58,6 +58,7 @@ class Builder:
 		"""
 		client_h_data = CoreCryptoRSA.hybrid_encrypt(gx_bytes, onion_key)
 		nspec = 1  # Always keep this 1 to avoid going to hell
+		lspec = bytearray(IPv4Address(hop2_ip).packed) + pack('!H', int(hop2_port))
 		extend_cell_payload = RelayExtendPayload(nspec,
 												RelayExtendPayload.LSTYPE_ENUM['TLS_TCP_IPV4'],
 												RelayExtendPayload.LSTYPE_LSLEN_ENUM['TLS_TCP_IPV4'],
@@ -66,7 +67,7 @@ class Builder:
 												CreateCellPayload.CREATE_HANDSHAKE_LEN[handshake_type],
 												client_h_data)
 
-		relay_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2'], 1, 0, "", 509, extend_cell_payload)
+		relay_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2'], 0, 0, b'', Cell.PAYLOAD_LEN - 11, extend_cell_payload)
 
 		relay_extend_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
 
@@ -85,7 +86,7 @@ class Builder:
 		gxy = CoreCryptoDH.compute_dh_shared_key(gx_bytes, y_bytes)
 		kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 
-		server_h_data = TapSHData(EncoderDecoder.bytes_to_utf8str(gy_bytes), kdf_dict['KH'])
+		server_h_data = TapSHData(gy_bytes, kdf_dict['KH'])
 		created_cell_payload = CreatedCellPayload(CreatedCellPayload.TAP_S_HANDSHAKE_LEN, server_h_data)
 		created_cell = Cell(circ_id, Cell.CMD_ENUM['CREATED2'], Cell.PAYLOAD_LEN, created_cell_payload)
 		return created_cell
@@ -134,17 +135,7 @@ class Builder:
 		"""
 		relay_extended_cell_payload = RelayExtendedPayload(hlen, hdata)
 
-		# Calculate digest from the extended2 payload
-		# payload_dict = {
-		#     'HLEN': relay_extended_cell_payload.HLEN,
-		#     'HDATA': relay_extended_cell_payload.HDATA
-		# }
-		# digest = CoreCryptoMisc.calculate_digest(payload_dict)
-		# Using a digest here will ruin the code structure where the payload of a cell is another object
-		# Function to get payload from digest?
-
-		# Construct the Relay cell with extended2 payload which is the payload for the Cell class
-		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], False, 0, "", Cell.PAYLOAD_LEN - 11, relay_extended_cell_payload)
+		extended_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2'], 0, 0, b'', Cell.PAYLOAD_LEN - 11, relay_extended_cell_payload)
 
 		# Construct the actual cell
 		extended_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, extended_cell_payload)
@@ -198,111 +189,123 @@ class Parser:
 	"""
 	The class with methods that parse a Python dictionary into a Cell object
 	"""
+	@staticmethod
+	def parse_basic_cell(cell_bytes: bytes) -> Tuple:
+		length = len(cell_bytes)-4-1-2
+		fmt_str = '=IBH' + str(length) + 's'
+		return unpack(fmt_str, cell_bytes)
 
 	@staticmethod
-	def parse_create_cell(dict_cell: Dict) -> Cell:
-		"""
-		The method to parse a Create Cell
-		:param dict_cell: The python Dict version of a cell
-		:return: Return a well formed Create Cell object
-		"""
+	def parse_encoded_relay_cell(cell_bytes: bytes) -> Tuple:
+		cell_tuple = Parser.parse_basic_cell(cell_bytes)
 
-		if 'CMD' not in dict_cell:
-			return None
+		fmt_str = '=BHH4sH'+str(Cell.PAYLOAD_LEN - 11)+'s'
+		relay_cell_payload_tuple = unpack(fmt_str, cell_tuple[3])
 
-		if dict_cell['CMD'] != Cell.CMD_ENUM['CREATE2']:
-			return None
+		return relay_cell_payload_tuple
 
-		client_h_data = dict_cell['PAYLOAD']['HDATA']
-		client_h_data = TapCHData(client_h_data['PADDING'], client_h_data['SYMKEY'], client_h_data['GX1'], client_h_data['GX2'])
+	@staticmethod
+	def parse_encoded_create_cell(cell_bytes: bytes) -> Cell:
+		cell_tuple = Parser.parse_basic_cell(cell_bytes)
 
-		create_cell_payload = CreateCellPayload(dict_cell['PAYLOAD']['HTYPE'], dict_cell['PAYLOAD']['HLEN'], client_h_data)
+		hlen = CreateCellPayload.CREATE_HANDSHAKE_LEN['TAP']
+		payload_fmt_str = '=HH'+str(hlen)+'s'
+		create_cell_payload_tuple = unpack(payload_fmt_str, cell_tuple[3][0:(2+2+hlen)])
 
-		create_cell = Cell(dict_cell['CIRCID'], Cell.CMD_ENUM['CREATE2'], dict_cell['LENGTH'], create_cell_payload)
+		h_data_fmt_str = '='+str(CC.PK_PAD_LEN)+'s'+str(CC.KEY_LEN)+'s'+str(CC.PK_ENC_LEN - CC.PK_PAD_LEN - CC.KEY_LEN)+'s'+str(CC.DH_LEN-(CC.PK_ENC_LEN-CC.PK_PAD_LEN-CC.KEY_LEN))+'s'
+		h_data_tuple = unpack(h_data_fmt_str, create_cell_payload_tuple[2])
+
+		h_data = TapCHData(h_data_tuple[0], h_data_tuple[1], h_data_tuple[2], h_data_tuple[3])
+		create_cell_payload = CreateCellPayload(create_cell_payload_tuple[0], create_cell_payload_tuple[1], h_data)
+		create_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], create_cell_payload)
 
 		return create_cell
 
 	@staticmethod
-	def parse_extend_cell(dict_cell: Dict) -> Cell:
-		"""
-		The method to parse an Extend Cell
-		:param dict_cell: The python Dict version of a cell
-		:return: Return a well formed Extend Cell object
-		"""
-		if 'CMD' not in dict_cell:
-			return None
+	def parse_encoded_created_cell(cell_bytes: bytes) -> Cell:
 
-		if dict_cell['CMD'] != Cell.CMD_ENUM['RELAY']:
-			return None
+		cell_tuple = Parser.parse_basic_cell(cell_bytes)
 
-		client_h_data = dict_cell['PAYLOAD']['Data']['HDATA']
-		client_h_data = TapCHData(client_h_data['PADDING'], client_h_data['SYMKEY'], client_h_data['GX1'], client_h_data['GX2'])
+		hlen = CreatedCellPayload.TAP_S_HANDSHAKE_LEN
+		payload_fmt_str = '=H'+str(hlen)+'s'
+		created_cell_payload_tuple = unpack(payload_fmt_str, cell_tuple[3][0:(2+hlen)])
 
-		extend_cell_payload = RelayExtendPayload(dict_cell['PAYLOAD']['Data']['NSPEC'],
-												dict_cell['PAYLOAD']['Data']['LSTYPE'],
-												dict_cell['PAYLOAD']['Data']['LSLEN'],
-												dict_cell['PAYLOAD']['Data']['LSPEC'],
-												dict_cell['PAYLOAD']['Data']['HTYPE'],
-												dict_cell['PAYLOAD']['Data']['HLEN'],
-												client_h_data)
+		h_data_fmt_str = '='+str(CC.DH_LEN)+'s'+str(CC.HASH_LEN)+'s'
+		h_data_tuple = unpack(h_data_fmt_str, created_cell_payload_tuple[1])
 
-		relay_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'],
-											dict_cell['PAYLOAD']['RECOGNIZED'],
-											dict_cell['PAYLOAD']['StreamID'],
-											dict_cell['PAYLOAD']['Digest'],
-											dict_cell['PAYLOAD']['Length'],
-											extend_cell_payload)
+		server_h_data = TapSHData(h_data_tuple[0], h_data_tuple[1])
 
-		relay_extend_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], relay_cell_payload)
+		created_cell_payload = CreatedCellPayload(created_cell_payload_tuple[0], server_h_data)
 
-		return relay_extend_cell
-
-	@staticmethod
-	def parse_created_cell(dict_cell: Dict) -> Cell:
-		"""
-		The method to parse a created cell object
-		:param dict_cell: The python Dict version of a cell
-		:return: Return a well formed Created Cell object
-		"""
-		if 'CMD' not in dict_cell:
-			return None
-
-		if dict_cell['CMD'] != Cell.CMD_ENUM['CREATED2']:
-			return None
-
-		server_h_data = dict_cell['PAYLOAD']['HDATA']
-		server_h_data = TapSHData(server_h_data['GY'], server_h_data['KH'])
-
-		created_cell_payload = CreatedCellPayload(dict_cell['PAYLOAD']['HLEN'], server_h_data)
-
-		created_cell = Cell(dict_cell['CIRCID'], Cell.CMD_ENUM['CREATED2'], dict_cell['LENGTH'], created_cell_payload)
+		created_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], created_cell_payload)
 
 		return created_cell
 
 	@staticmethod
-	def parse_extended_cell(dict_cell: Dict) -> Cell:
-		"""
-		The method to parse a extended cell object
-		:param dict_cell: The python Dict version of a cell
-		:return: Return a well formed Extended Cell object
-		"""
-		if 'CMD' not in dict_cell:
-			return None
-		if dict_cell['CMD'] != Cell.CMD_ENUM['RELAY']:
-			return None
-		if dict_cell['PAYLOAD']['RELAY_CMD'] != RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2']:
-			return None
+	def parse_encoded_extend_cell(cell_bytes: bytes) -> Cell:
+		cell_tuple = Parser.parse_basic_cell(cell_bytes)
+		relay_cell_payload_tuple = Parser.parse_encoded_relay_cell(cell_bytes)
 
-		server_h_data = dict_cell['PAYLOAD']['Data']['HDATA']
-		server_h_data = TapSHData(server_h_data['GY'], server_h_data['KH'])
+		part_fmt_str1 = '=BBB'
+		part_tuple1 = unpack(part_fmt_str1, relay_cell_payload_tuple[5][0:3])
 
-		extended_cell_payload_relay = RelayExtendedPayload(dict_cell['PAYLOAD']['Data']['HLEN'], server_h_data)
+		part_fmt_str2 = '=BBB' + str(part_tuple1[2])+'s'+'HH'
+		part_tuple2 = unpack(part_fmt_str2, relay_cell_payload_tuple[5][0:(3+part_tuple1[2]+2+2)])
 
-		extended_cell_payload = RelayCellPayload(dict_cell['PAYLOAD']['RELAY_CMD'], dict_cell['PAYLOAD']['RECOGNIZED'],
-												dict_cell['PAYLOAD']['StreamID'], dict_cell['PAYLOAD']['Digest'],
-												dict_cell['PAYLOAD']['Length'], extended_cell_payload_relay)
+		fmt_str = '=BBB' + str(part_tuple1[2])+'s'+'HH' + str(part_tuple2[5])+'s'
+		relay_extend_payload_tuple = unpack(fmt_str, relay_cell_payload_tuple[5][0:(3+part_tuple1[2]+2+2+part_tuple2[5])])
 
-		extended_cell = Cell(dict_cell['CIRCID'], dict_cell['CMD'], dict_cell['LENGTH'], extended_cell_payload)
+		h_data_fmt_str = '=' + str(CC.PK_PAD_LEN) + 's' + str(CC.KEY_LEN) + 's' + str(
+			CC.PK_ENC_LEN - CC.PK_PAD_LEN - CC.KEY_LEN) + 's' + str(
+			CC.DH_LEN - (CC.PK_ENC_LEN - CC.PK_PAD_LEN - CC.KEY_LEN)) + 's'
+		h_data_tuple = unpack(h_data_fmt_str, relay_extend_payload_tuple[6])
+
+		h_data = TapCHData(h_data_tuple[0], h_data_tuple[1], h_data_tuple[2], h_data_tuple[3])
+		relay_extend_payload = RelayExtendPayload(relay_extend_payload_tuple[0],
+		                                          relay_extend_payload_tuple[1],
+		                                          relay_extend_payload_tuple[2],
+		                                          relay_extend_payload_tuple[3],
+		                                          relay_extend_payload_tuple[4],
+		                                          relay_extend_payload_tuple[5],
+		                                          h_data)
+
+		relay_cell_payload = RelayCellPayload(relay_cell_payload_tuple[0],
+		                                      relay_cell_payload_tuple[1],
+		                                      relay_cell_payload_tuple[2],
+		                                      relay_cell_payload_tuple[3],
+		                                      relay_cell_payload_tuple[4],
+		                                      relay_extend_payload)
+
+		extend_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], relay_cell_payload)
+
+		return extend_cell
+
+	@staticmethod
+	def parse_encoded_extended_cell(cell_bytes: bytes) -> Cell:
+		cell_tuple = Parser.parse_basic_cell(cell_bytes)
+		relay_cell_payload_tuple = Parser.parse_encoded_relay_cell(cell_bytes)
+
+		part_fmt_str1 = '=H'
+		part_tuple1 = unpack(part_fmt_str1, relay_cell_payload_tuple[5][0:2])
+
+		fmt_str = '=H' + str(part_tuple1[0]) + 's'
+		relay_extended_payload_tuple = unpack(fmt_str, relay_cell_payload_tuple[5][0:2+part_tuple1[0]])
+
+		h_data_fmt_str = '='+str(CC.DH_LEN)+'s'+str(CC.HASH_LEN)+'s'
+		h_data_tuple = unpack(h_data_fmt_str, relay_extended_payload_tuple[1])
+
+		server_h_data = TapSHData(h_data_tuple[0], h_data_tuple[1])
+
+		relay_extended_payload = RelayExtendedPayload(relay_extended_payload_tuple[0], server_h_data)
+
+		relay_cell_payload = RelayCellPayload(relay_cell_payload_tuple[0],
+		                                      relay_cell_payload_tuple[1],
+		                                      relay_cell_payload_tuple[2],
+		                                      relay_cell_payload_tuple[3],
+		                                      relay_cell_payload_tuple[4],
+		                                      relay_extended_payload)
+
+		extended_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], relay_cell_payload)
 
 		return extended_cell
 
@@ -359,9 +362,8 @@ class Processor:
 		"""
 		extend_cell_payload = cell.PAYLOAD.Data
 		LSPEC = extend_cell_payload.LSPEC
-		addr = LSPEC.split(":")[0]
-		port = int(LSPEC.split(":")[1])
-
+		addr, port = unpack('!IH', LSPEC)
+		addr = str(IPv4Address(addr))
 		htype = extend_cell_payload.HTYPE
 		hlen = extend_cell_payload.HLEN
 		hdata = extend_cell_payload.HDATA
@@ -379,8 +381,7 @@ class Processor:
 		"""
 		if cell.CIRCID == required_circ_id:
 			created_h_data = cell.PAYLOAD.HDATA
-			gy_str = created_h_data.GY
-			gy_bytes = EncoderDecoder.utf8str_to_bytes(gy_str)
+			gy_bytes = created_h_data.GY
 			gxy = CoreCryptoDH.compute_dh_shared_key(gy_bytes, x_bytes)
 			kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 			if created_h_data.KH == kdf_dict['KH']:
@@ -415,8 +416,7 @@ class Processor:
 		"""
 		if cell.CIRCID == required_circ_id:
 			extended_h_data = cell.PAYLOAD.Data.HDATA
-			gy_str = extended_h_data.GY
-			gy_bytes = EncoderDecoder.utf8str_to_bytes(gy_str)
+			gy_bytes = extended_h_data.GY
 			gxy = CoreCryptoDH.compute_dh_shared_key(gy_bytes, x_bytes)
 			kdf_dict = CoreCryptoRSA.kdf_tor(gxy)
 			if extended_h_data.KH == kdf_dict['KH']:

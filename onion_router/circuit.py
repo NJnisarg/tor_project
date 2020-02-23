@@ -3,7 +3,7 @@ import selectors
 from cell.cell import Cell
 from cell.cell_processing import Builder, Parser, Processor
 from cell.relay_cell import RelayCellPayload
-from cell.serializers import Deserialize, Serialize
+from cell.serializers import Deserialize, Serialize, ComplexStructEncoder
 from connection.node import Node
 from connection.skt import Skt
 from crypto.core_crypto import CoreCryptoDH
@@ -57,25 +57,24 @@ class Circuit:
 	def process_cell(self, sock, mask, direction):
 
 		# The cell is incoming from previous hop
-		cell = None
+		cell_bytes = None
 		if direction == 0:
-			cell = str(self.conn.recv(65536).decode())
+			cell_bytes = self.conn.recv(65536)
 
 		elif direction == 1:
-			cell = str(self.skt.client_recv_data().decode())
+			cell_bytes = self.skt.client_recv_data()
 
-		if cell is not None and cell != "":
+		if cell_bytes is not None and cell_bytes != "":
 
-			cell_dict = Deserialize.json_to_dict(cell)
-			print(cell_dict)
-			self.cmd_to_func[cell_dict['CMD']](cell_dict,direction)
+			cell_tuple = Parser.parse_basic_cell(cell_bytes)
+			self.cmd_to_func[cell_tuple[1]](cell_bytes, direction)
 
 		else:
 			return
 
-	def handle_create_cell(self,cell_dict,direction):
+	def handle_create_cell(self, cell_bytes, direction):
 			# Call the Parser for create cell
-			create_cell = Parser.parse_create_cell(cell_dict)
+			create_cell = Parser.parse_encoded_create_cell(cell_bytes)
 
 			# Process the create cell
 			y, y_bytes, gy, gy_bytes = CoreCryptoDH.generate_dh_priv_key()
@@ -85,14 +84,14 @@ class Circuit:
 			# and send it down the socket
 			created_cell = Builder.build_created_cell(y_bytes, gy_bytes, self.circ_id, gx_bytes)
 			print(created_cell)
-			self.conn.sendall(Serialize.obj_to_json(created_cell).encode('utf-8'))
+			self.conn.sendall(ComplexStructEncoder.encode(created_cell))
 			print("Created cell sent")
 
 			self.session_key = kdf_dict
 			return 0
 
-	def handle_created_cell(self, cell_dict, direction):
-		created_cell = Parser.parse_created_cell(cell_dict)
+	def handle_created_cell(self, cell_bytes, direction):
+		created_cell = Parser.parse_encoded_created_cell(cell_bytes)
 
 		# process created cell
 		hlen, hdata = Processor.process_created_cell_for_extended(created_cell)
@@ -101,16 +100,17 @@ class Circuit:
 		extended_cell = Builder.build_extended_cell_from_created_cell(self.circ_id, hlen, hdata)
 
 		# send extended to conn
-		self.conn.sendall(Serialize.obj_to_json(extended_cell).encode('utf-8'))
+		self.conn.sendall(ComplexStructEncoder.encode(extended_cell))
 		self.is_last_node = False
 		print("Extended cell sent")
 
-	def handle_relay_cell(self,cell_dict,direction):
-			return self.relaycmd_to_func[cell_dict['PAYLOAD']['RELAY_CMD']](cell_dict, direction)
+	def handle_relay_cell(self, cell_bytes, direction):
+			relay_cell_payload_tuple = Parser.parse_encoded_relay_cell(cell_bytes)
+			return self.relaycmd_to_func[relay_cell_payload_tuple[0]](cell_bytes, direction)
 
-	def handle_relay_extend_cell(self,cell_dict,direction):
+	def handle_relay_extend_cell(self, cell_bytes, direction):
 		if self.is_last_node:
-			extend_cell = Parser.parse_extend_cell(cell_dict)
+			extend_cell = Parser.parse_encoded_extend_cell(cell_bytes)
 			addr, port, htype, hlen, hdata = Processor.process_extend_cell(extend_cell, self.node.onion_key_pri)
 
 			# Connect with next node
@@ -126,19 +126,17 @@ class Circuit:
 			create_cell = Builder.build_create_cell_from_extend(self.circ_id, htype, hlen, hdata)
 
 			# Sending a JSON String down the socket
-			self.skt.client_send_data(Serialize.obj_to_json(create_cell).encode('utf-8'))
+			self.skt.client_send_data(ComplexStructEncoder.encode(create_cell))
 
 			return 1
 		else:
-			extend_cell = Parser.parse_extend_cell(cell_dict)
-			# Sending a JSON String down the socket
-			self.skt.client_send_data(Serialize.obj_to_json(extend_cell).encode('utf-8'))
+			# Forwarding the cell down the stream
+			self.skt.client_send_data(cell_bytes)
 
 			return 2
 
-	def handle_relay_extended_cell(self, cell_dict, direction):
-		extended_cell = Parser.parse_extended_cell(cell_dict)
-		self.conn.sendall(Serialize.obj_to_json(extended_cell).encode('utf-8'))
+	def handle_relay_extended_cell(self, cell_bytes, direction):
+		self.conn.sendall(cell_bytes)
 
 		return 2
 

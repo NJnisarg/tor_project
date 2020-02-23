@@ -54,6 +54,8 @@ class Cell:
 		:param PAYLOAD: The Payload object
 		:param LENGTH: The length of the payload
 		"""
+		self.FORMAT_STR = '=IBH'+str(LENGTH)+'s'
+		self.FORMAT_STR_ARR = ['CIRCID', 'CMD', 'LENGTH', 'PAYLOAD']
 		self.CIRCID = CIRCID
 		self.CMD = CMD
 		self.LENGTH = LENGTH

@@ -109,21 +109,28 @@ class CoreCryptoRSA:
 
 			# Create the TAP_H_DATA object
 			padding_bytes = bytes(CryptoConstants.PK_PAD_LEN)
-			tap_h_data = TapCHData(EncoderDecoder.bytes_to_utf8str(padding_bytes), None, EncoderDecoder.bytes_to_utf8str(p), None)
+			tap_h_data = TapCHData(padding_bytes, None, p, None)
 
 		else:
 			k = bytearray(os.urandom(CryptoConstants.KEY_LEN))
 			m1 = message[0:CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN - CryptoConstants.KEY_LEN]
 			m2 = message[CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN - CryptoConstants.KEY_LEN:]
 			p1 = pk.encrypt(bytes(k + m1),
-							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None))
+							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA1()), algorithm=hashes.SHA1(), label=None))
 
 			nonce = bytes(CryptoConstants.KEY_LEN)  # all bytes are 0, nonce is the IV
 			cipher = Cipher(algorithms.AES(k), modes.CTR(nonce), backend=default_backend())
 			encryptor = cipher.encryptor()
 			p2 = encryptor.update(m2) + encryptor.finalize()
 
-			tap_h_data = TapCHData(EncoderDecoder.bytes_to_utf8str(nonce), EncoderDecoder.bytes_to_utf8str(k), EncoderDecoder.bytes_to_utf8str(p1), EncoderDecoder.bytes_to_utf8str(p2))
+			print(p1, len(p1))
+			print(p2, len(p2))
+			print(m2, len(m2))
+			# tap_h_data = TapCHData(bytearray(p1)[CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN:],
+			#                        bytearray(p1)[0:CryptoConstants.KEY_LEN],
+			#                        bytearray(p1)[CryptoConstants.KEY_LEN:(CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN)],
+			#                        p2)
+			tap_h_data = TapCHData(bytearray(p1)[0:CryptoConstants.PK_PAD_LEN], bytearray(p1)[CryptoConstants.PK_PAD_LEN:(CryptoConstants.PK_PAD_LEN+CryptoConstants.KEY_LEN)], bytearray(p1)[(CryptoConstants.PK_PAD_LEN+CryptoConstants.KEY_LEN):], p2)
 
 		return tap_h_data
 
@@ -141,18 +148,25 @@ class CoreCryptoRSA:
 			#                          algorithm=hashes.SHA256(), label=None))
 		else:
 			# Get the params of in bytes form
-			gx1 = EncoderDecoder.utf8str_to_bytes(h_data.GX1)
-			gx2 = EncoderDecoder.utf8str_to_bytes(h_data.GX2)
-			sym_key = EncoderDecoder.utf8str_to_bytes(h_data.SYMKEY)
-			padding_bytes = EncoderDecoder.utf8str_to_bytes(h_data.PADDING)
+			gx1 = h_data.GX1
+			gx2 = h_data.GX2
+			sym_key = h_data.SYMKEY
+			padding_bytes = h_data.PADDING
+			print(padding_bytes + sym_key + gx1)
+			print(sym_key)
+			print(gx1)
+			print(gx2)
 
 			# Decryption begins
-			km1 = pk.decrypt(gx1,
-							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
+			km1 = pk.decrypt(padding_bytes + sym_key + gx1,
+							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA1()), algorithm=hashes.SHA1(),
 							label=None))
+			print(len(km1))
 			m1 = km1[len(sym_key):]
+			sym_key = km1[0:len(sym_key)]
 
-			cipher = Cipher(algorithms.AES(sym_key), modes.CTR(padding_bytes), backend=default_backend())
+			nonce = bytes(CryptoConstants.KEY_LEN)
+			cipher = Cipher(algorithms.AES(sym_key), modes.CTR(nonce), backend=default_backend())
 			decryptor = cipher.decryptor()
 			m2 = decryptor.update(gx2) + decryptor.finalize()
 
@@ -179,12 +193,12 @@ class CoreCryptoRSA:
 		key = hkdf.derive(message)
 
 		kdf_tor_dict = {
-			'KH': str(key[:CryptoConstants.HASH_LEN]),
-			'Df': str(key[CryptoConstants.HASH_LEN:(2 * CryptoConstants.HASH_LEN)]),
-			'Db': str(key[(2 * CryptoConstants.HASH_LEN):(3 * CryptoConstants.HASH_LEN)]),
-			'Kf': str(key[(3 * CryptoConstants.HASH_LEN):((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN)]),
-			'Kb': str(key[((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN):(
-						(3 * CryptoConstants.HASH_LEN) + (2 * CryptoConstants.KEY_LEN))])
+			'KH': key[:CryptoConstants.HASH_LEN],
+			'Df': key[CryptoConstants.HASH_LEN:(2 * CryptoConstants.HASH_LEN)],
+			'Db': key[(2 * CryptoConstants.HASH_LEN):(3 * CryptoConstants.HASH_LEN)],
+			'Kf': key[(3 * CryptoConstants.HASH_LEN):((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN)],
+			'Kb': key[((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN):(
+						(3 * CryptoConstants.HASH_LEN) + (2 * CryptoConstants.KEY_LEN))]
 		}
 
 		# As of now, the function returns a dictionary due to certain problems with
@@ -221,12 +235,12 @@ class CoreCryptoDH:
 		"""
 		# Generate the private key ==> x
 		x = CoreCryptoDH.dh_parameters.generate_private_key()
-		x_bytes = x.private_bytes(encoding=serialization.Encoding.PEM, format=serialization.PrivateFormat.PKCS8,
+		x_bytes = x.private_bytes(encoding=serialization.Encoding.DER, format=serialization.PrivateFormat.PKCS8,
 								encryption_algorithm=serialization.NoEncryption())
 
 		# Also create the public key ==> gx
 		gx = x.public_key()
-		gx_bytes = gx.public_bytes(encoding=serialization.Encoding.PEM,
+		gx_bytes = gx.public_bytes(encoding=serialization.Encoding.DER,
 									format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
 		return x, x_bytes, gx, gx_bytes
@@ -239,8 +253,8 @@ class CoreCryptoDH:
 		:param x_bytes: The bytes representation of the private key of node itself
 		:return: Returns shared_key as bytes
 		"""
-		gy = serialization.load_pem_public_key(gy_bytes, backend=default_backend())
-		x = serialization.load_pem_private_key(x_bytes, backend=default_backend(), password=None)
+		gy = serialization.load_der_public_key(gy_bytes, backend=default_backend())
+		x = serialization.load_der_private_key(x_bytes, backend=default_backend(), password=None)
 		shared_key = x.exchange(gy)
 
 		return shared_key
