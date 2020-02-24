@@ -495,3 +495,69 @@ class Processor:
 
 		# Return
 		return dec_recognized, cell
+
+	@staticmethod
+	def process_connected_cell_router(cell: Cell, kdf_dict: Dict) -> Cell:
+		"""
+		Function for processing a connected cell when it arrives in a router
+		:param cell: The cell object for the connected cell
+		:param kdf_dict: The key derivative function dictionary for the session key
+		"""
+		# Take values to be encrypted from the cell
+		dec_recognized = cell.PAYLOAD.RECOGNIZED
+		dec_stream_id = cell.PAYLOAD.StreamID
+		dec_digest = cell.PAYLOAD.Digest
+		dec_length = cell.PAYLOAD.Length
+		dec_IPv4 = cell.PAYLOAD.Data.IPv4
+		dec_TTL = cell.PAYLOAD.Data.TTL
+
+		# Add one layer of onion skin
+		enc_recognized = unpack('!H', CoreCryptoSymmetric.encrypt_for_hop(pack('!H', dec_recognized), kdf_dict))[0]
+		enc_stream_id = unpack('!H', CoreCryptoSymmetric.encrypt_for_hop(pack('!H', dec_stream_id), kdf_dict))[0]
+		enc_digest = CoreCryptoSymmetric.encrypt_for_hop(dec_digest, kdf_dict)
+		enc_length = unpack('!H', CoreCryptoSymmetric.encrypt_for_hop(pack('!H', dec_length), kdf_dict))[0]
+		enc_IPv4 = unpack('!I', CoreCryptoSymmetric.encrypt_for_hop(pack('!I', dec_IPv4), kdf_dict))[0]
+		enc_TTL = unpack('!I', CoreCryptoSymmetric.encrypt_for_hop(pack('!I', dec_TTL), kdf_dict))[0]
+
+		# Adding encrypted values to the cell
+		cell.PAYLOAD.RECOGNIZED = enc_recognized
+		cell.PAYLOAD.StreamID = enc_stream_id
+		cell.PAYLOAD.Digest = enc_digest
+		cell.PAYLOAD.Length = enc_length
+		cell.PAYLOAD.Data.IPv4 = enc_IPv4
+		cell.PAYLOAD.Data.TTL = enc_TTL
+
+		return cell
+
+	@staticmethod
+	def process_connected_cell_proxy(cell: Cell, kdf_dict1: Dict, kdf_dict2: Dict, kdf_dict3: Dict) -> Cell:
+		"""
+		Function for processing a connected cell when it arrives in a router
+		:param cell: The cell object for the connected cell
+		:param kdf_dict1, kdf_dict2, kdf_dict3: The key derivative function dictionaries for the three session keys
+		"""
+		# Take values from the cell
+		enc_recognized = cell.PAYLOAD.RECOGNIZED
+		enc_stream_id = cell.PAYLOAD.StreamID
+		enc_digest = cell.PAYLOAD.Digest
+		enc_length = cell.PAYLOAD.Length
+		enc_IPv4 = cell.PAYLOAD.Data.IPv4
+		enc_TTL = cell.PAYLOAD.Data.TTL
+
+		# Decrypt all onion layers
+		dec_recognized = unpack('!H', CoreCryptoSymmetric.decrypt_from_origin(pack('!H', enc_recognized), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		dec_stream_id = unpack('!H', CoreCryptoSymmetric.decrypt_from_origin(pack('!H', enc_stream_id), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		dec_digest = CoreCryptoSymmetric.decrypt_from_origin(enc_digest, kdf_dict1, kdf_dict2, kdf_dict3)
+		dec_length = unpack('!H', CoreCryptoSymmetric.decrypt_from_origin(pack('!H', enc_length), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		dec_IPv4 = unpack('!I', CoreCryptoSymmetric.decrypt_from_origin(pack('!I', enc_IPv4), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+		dec_TTL = unpack('!I', CoreCryptoSymmetric.decrypt_from_origin(pack('!I', enc_TTL), kdf_dict1, kdf_dict2, kdf_dict3))[0]
+
+		# Adding decrypted values to the cell
+		cell.PAYLOAD.RECOGNIZED = dec_recognized
+		cell.PAYLOAD.StreamID = dec_stream_id
+		cell.PAYLOAD.Digest = dec_digest
+		cell.PAYLOAD.Length = dec_length
+		cell.PAYLOAD.Data.IPv4 = dec_IPv4
+		cell.PAYLOAD.Data.TTL = dec_TTL
+
+		return cell
