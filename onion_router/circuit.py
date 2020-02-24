@@ -168,7 +168,21 @@ class Circuit:
 			conn.request("GET", "/")
 			res = conn.getresponse()
 			print(res.status, res.reason)
+			if res:
+				# The last parameter for build_relay_connected_cell is supposed to be TTL in secs
+				connected_cell = Builder.build_relay_connected_cell(self.circid, stream_id, self.session_key, ip_addr, 360)
+				self.conn.sendall(ComplexStructEncoder.encode(connected_cell))
 
 		else:
 			print("Begin cell not for us. Lets pass it on!")
 			self.skt.client_send_data(ComplexStructEncoder.encode(begin_cell))
+
+	def handle_relay_connected_cell(self, cell_bytes):
+		"""
+		Function for handling the connected cell when it is received by a router
+		:param cell_bytes: The struct received by the router for the connected cell
+		"""
+		parsed_connected_cell = Parser.parse_connected_cell(cell_bytes)
+		processed_connected_cell = Processor.process_connected_cell_router(parsed_connected_cell)
+		self.conn.sendall(processed_connected_cell)
+		return

@@ -318,7 +318,7 @@ class CoreCryptoSymmetric:
 		kdf_dict_arr = [kdf_dict1, kdf_dict2, kdf_dict3]
 		decryptor = None
 		for i in range(2, -1, -1):
-			kf = kdf_dict_arr[i]['Kf']
+			kf = kdf_dict_arr[i]['Kb']
 			cipher = Cipher(algorithms.AES(kf), modes.CTR(init_vector), backend=default_backend())
 			decryptor = cipher.decryptor()
 			message = decryptor.update(message)
