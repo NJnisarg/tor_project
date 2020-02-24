@@ -1,6 +1,6 @@
 import sys
 
-sys.path.append('/home/njnisarg/tor_project')
+sys.path.append('/home/praveenreddy/tor_project')
 from node_directory_service.node_directory_service import NodeDirectoryService
 from onion_router.router import OnionRouter
 

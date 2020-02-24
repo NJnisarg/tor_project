@@ -132,3 +132,23 @@ class RelayBeginPayload:
 
     def reprJSON(self) -> Dict[str, any]:
         return vars(self)
+
+
+class RelayConnectedPayload:
+
+    """
+    The class representing Relay Connected Payload object
+    """
+
+    def __init__(self, IPv4: int, TTL: int):
+        # TODO: Add support for hostname and IPv6 formats as well
+        """
+        Constructor
+        :param IPv4: IPv4 address to which the connection was made 
+        :param TTL:A number of seconds (TTL) for which the address may be cached
+        """
+        self.FORMAT_STR='=II'
+        self.IPv4=IPv4
+        self.TTL=TTL
+    def reprJSON(self) -> Dict[str, any]:
+        return vars(self)

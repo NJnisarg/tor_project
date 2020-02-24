@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 
 from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
-from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload
+from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload,RelayConnectedPayload
 from connection.skt import Skt
 from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc, CoreCryptoSymmetric, CryptoConstants as CC
 
@@ -237,6 +237,19 @@ class Parser:
 		created_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], created_cell_payload)
 
 		return created_cell
+	@staticmethod
+	def parse_encoded_connected_cell(cell_bytes: bytes)-> Cell:
+		cell_tuple =Parser.parse_basic_cell(cell_bytes)
+
+		relay_payload_tuple=Parser.parse_encoded_relay_cell(cell_tuple[3])
+		
+		relay_connected_tuple=unpack('=II',relay_payload_tuple[5][0:8])
+		relay_connected_obj=RelayConnectedPayload(relay_connected_tuple[0],relay_connected_tuple[1])
+		relay_payload_obj=RelayCellPayload(relay_payload_tuple[0],relay_payload_tuple[1],relay_payload_tuple[2],relay_payload_tuple[3],relay_payload_tuple[4],relay_connected_obj)
+
+		cell=Cell(cell_tuple[0],cell_tuple[1],cell_tuple[2],relay_payload_obj)
+		return cell		
+
 
 	@staticmethod
 	def parse_encoded_extend_cell(cell_bytes: bytes) -> Cell:

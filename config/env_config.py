@@ -1,1 +1,1 @@
-BASE_PROJECT_DIR = '/home/njnisarg/tor_project'
+BASE_PROJECT_DIR = '/home/praveenreddy/tor_project'
