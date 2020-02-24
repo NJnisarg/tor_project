@@ -181,6 +181,39 @@ class Builder:
 		begin_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
 		return begin_cell
 
+		# noinspection PyUnreachableCode
+		@staticmethod
+		def build_relay_connected_cell(CIRCID: int, StreamID, kdf_dict, IPv4_address : str,TTL : int) -> Cell:
+
+			"""
+
+			:param CIRCID: The Circuit ID
+			:param StreamID: The Stream ID
+			:param kdf_dict: A dictionary (key) to encrypt data
+			:param IPv4_address: The IPv4 address to which the connection was made [4 octets]
+			:param TTL: A number of seconds (TTL) for which the address may be cached [4 octets]
+			:return:
+			"""
+
+
+			# Encrypt the values by packing and unpacking
+			enc_StreamID = unpack('!H', CoreCryptoSymmetric.encrypt_for_hop(pack('!H', StreamID), kdf_dict))[0]
+			enc_relay_payload_len = unpack('!H',CoreCryptoSymmetric.encrypt_from_origin(pack('!H', Cell.PAYLOAD_LEN - 11),kdf_dict1, kdf_dict2, kdf_dict3))[0]
+			enc_IPv4_address = unpack('!I', CoreCryptoSymmetric.encrypt_for_hop(pack('!I', int(IPv4Address(IPv4_address))), kdf_dict))[0]
+			enc_TTL = unpack('!I',CoreCryptoSymmetric.encrypt_for_hop(pack('!I', TTL), kdf_dict))[0]
+			enc_digest = CoreCryptoSymmetric.encrypt_for_hop(digest, kdf_dict)
+
+
+			relay_connected_cell_payload = RelayConnectedPayload(enc_IPv4_address, enc_TTL)
+
+			relay_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_CONNECTED'], 0, enc_StreamID, b'',
+													 enc_relay_payload_len, relay_connected_cell_payload)
+
+			# Construct the actual cell
+			relay_cell = Cell(CIRCID, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
+			return relay_cell
+
+
 
 class Parser:
 	"""
