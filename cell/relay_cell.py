@@ -148,6 +148,7 @@ class RelayConnectedPayload:
         :param TTL:A number of seconds (TTL) for which the address may be cached
         """
         self.FORMAT_STR='=II'
+        self.FORMAT_STR_ARR = ['IPv4', 'TTL']
         self.IPv4=IPv4
         self.TTL=TTL
     def reprJSON(self) -> Dict[str, any]:

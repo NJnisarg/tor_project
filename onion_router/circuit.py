@@ -48,7 +48,8 @@ class Circuit:
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTEND2']: self.handle_relay_extend_cell,
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED']: self.handle_relay_extended_cell,
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2']: self.handle_relay_extended_cell,
-			RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']: self.handle_relay_begin_cell
+			RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']: self.handle_relay_begin_cell,
+			RelayCellPayload.RELAY_CMD_ENUM['RELAY_CONNECTED']: self.handle_relay_connected_cell
 		}  # A lookup for the function to be called based on the relay cell
 
 	def main(self):
@@ -170,19 +171,19 @@ class Circuit:
 			print(res.status, res.reason)
 			if res:
 				# The last parameter for build_relay_connected_cell is supposed to be TTL in secs
-				connected_cell = Builder.build_relay_connected_cell(self.circid, stream_id, self.session_key, ip_addr, 360)
+				connected_cell = Builder.build_relay_connected_cell(self.circ_id, stream_id, self.session_key, ip_addr, 360)
 				self.conn.sendall(ComplexStructEncoder.encode(connected_cell))
 
 		else:
 			print("Begin cell not for us. Lets pass it on!")
 			self.skt.client_send_data(ComplexStructEncoder.encode(begin_cell))
 
-	def handle_relay_connected_cell(self, cell_bytes):
+	def handle_relay_connected_cell(self, cell_bytes, direction):
 		"""
 		Function for handling the connected cell when it is received by a router
 		:param cell_bytes: The struct received by the router for the connected cell
 		"""
-		parsed_connected_cell = Parser.parse_connected_cell(cell_bytes)
-		processed_connected_cell = Processor.process_connected_cell_router(parsed_connected_cell)
-		self.conn.sendall(processed_connected_cell)
+		parsed_connected_cell = Parser.parse_encoded_connected_cell(cell_bytes)
+		processed_connected_cell = Processor.process_connected_cell_router(parsed_connected_cell, self.session_key)
+		self.conn.sendall(ComplexStructEncoder.encode(processed_connected_cell))
 		return

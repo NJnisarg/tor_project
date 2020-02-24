@@ -160,10 +160,13 @@ class Circuit:
 		# Wait for the relay_connected cell to arrive
 		# Get the relay_connected cell in response and convert it to python Cell Object
 		cell_bytes = self.skt.client_recv_data()
-		relay_connected_cell_parsed = Parser.parse_relay_connected_cell(cell_bytes)
+		relay_connected_cell_parsed = Parser.parse_encoded_connected_cell(cell_bytes)
 		relay_connected_cell = Processor.process_connected_cell_proxy(relay_connected_cell_parsed, self.session_key01,
 											self.session_key02, self.session_key03)
 
+		print(vars(relay_connected_cell))
+		print(vars(relay_connected_cell.PAYLOAD))
+		print(vars(relay_connected_cell.PAYLOAD.Data))
 		if relay_connected_cell is not None:
 			return 0
 		else:
