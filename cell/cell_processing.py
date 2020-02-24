@@ -4,7 +4,7 @@ from typing import Dict, Tuple
 
 from cell.cell import Cell
 from cell.control_cell import CreateCellPayload, TapCHData, TapSHData, CreatedCellPayload
-from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload
+from cell.relay_cell import RelayCellPayload, RelayExtendedPayload, RelayBeginPayload, RelayExtendPayload,RelayConnectedPayload
 from connection.skt import Skt
 from crypto.core_crypto import CoreCryptoRSA, CoreCryptoDH, CoreCryptoMisc, CoreCryptoSymmetric, CryptoConstants as CC
 
@@ -181,6 +181,39 @@ class Builder:
 		begin_cell = Cell(circ_id, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
 		return begin_cell
 
+		# noinspection PyUnreachableCode
+		@staticmethod
+		def build_relay_connected_cell(CIRCID: int, StreamID, kdf_dict, IPv4_address : str,TTL : int) -> Cell:
+
+			"""
+
+			:param CIRCID: The Circuit ID
+			:param StreamID: The Stream ID
+			:param kdf_dict: A dictionary (key) to encrypt data
+			:param IPv4_address: The IPv4 address to which the connection was made [4 octets]
+			:param TTL: A number of seconds (TTL) for which the address may be cached [4 octets]
+			:return:
+			"""
+
+
+			# Encrypt the values by packing and unpacking
+			enc_StreamID = unpack('!H', CoreCryptoSymmetric.encrypt_for_hop(pack('!H', StreamID), kdf_dict))[0]
+			enc_relay_payload_len = unpack('!H',CoreCryptoSymmetric.encrypt_from_origin(pack('!H', Cell.PAYLOAD_LEN - 11),kdf_dict1, kdf_dict2, kdf_dict3))[0]
+			enc_IPv4_address = unpack('!I', CoreCryptoSymmetric.encrypt_for_hop(pack('!I', int(IPv4Address(IPv4_address))), kdf_dict))[0]
+			enc_TTL = unpack('!I',CoreCryptoSymmetric.encrypt_for_hop(pack('!I', TTL), kdf_dict))[0]
+			enc_digest = CoreCryptoSymmetric.encrypt_for_hop(digest, kdf_dict)
+
+
+			relay_connected_cell_payload = RelayConnectedPayload(enc_IPv4_address, enc_TTL)
+
+			relay_cell_payload = RelayCellPayload(RelayCellPayload.RELAY_CMD_ENUM['RELAY_CONNECTED'], 0, enc_StreamID, b'',
+													 enc_relay_payload_len, relay_connected_cell_payload)
+
+			# Construct the actual cell
+			relay_cell = Cell(CIRCID, Cell.CMD_ENUM['RELAY'], Cell.PAYLOAD_LEN, relay_cell_payload)
+			return relay_cell
+
+
 
 class Parser:
 	"""
@@ -237,6 +270,19 @@ class Parser:
 		created_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], created_cell_payload)
 
 		return created_cell
+	@staticmethod
+	def parse_encoded_connected_cell(cell_bytes: bytes)-> Cell:
+		cell_tuple =Parser.parse_basic_cell(cell_bytes)
+
+		relay_payload_tuple=Parser.parse_encoded_relay_cell(cell_tuple[3])
+		
+		relay_connected_tuple=unpack('=II',relay_payload_tuple[5][0:8])
+		relay_connected_obj=RelayConnectedPayload(relay_connected_tuple[0],relay_connected_tuple[1])
+		relay_payload_obj=RelayCellPayload(relay_payload_tuple[0],relay_payload_tuple[1],relay_payload_tuple[2],relay_payload_tuple[3],relay_payload_tuple[4],relay_connected_obj)
+
+		cell=Cell(cell_tuple[0],cell_tuple[1],cell_tuple[2],relay_payload_obj)
+		return cell		
+
 
 	@staticmethod
 	def parse_encoded_extend_cell(cell_bytes: bytes) -> Cell:

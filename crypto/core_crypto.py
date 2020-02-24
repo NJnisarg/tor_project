@@ -312,6 +312,25 @@ class CoreCryptoSymmetric:
 		return message
 
 	@staticmethod
+	def encrypt_for_hop(message: bytes, kdf_dict: Dict) -> bytes:
+		"""
+        The function to decrypt a message for a given hop
+        :param message: The message to decrypt
+        :param kdf_dict: The dict kdf_dict
+        :return: The decryted bytes
+        """
+
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		kb = kdf_dict['Kb']
+		cipher = Cipher(algorithms.AES(kb), modes.CTR(init_vector), backend=default_backend())
+		encryptor = cipher.encryptor()
+		message = encryptor.update(message) + encryptor.finalize()
+
+		return message
+
+
+	@staticmethod
 	def decrypt_from_origin(message: bytes, kdf_dict1: Dict, kdf_dict2: Dict, kdf_dict3: Dict) -> bytes:
 		init_vector = bytes(CryptoConstants.KEY_LEN)
 
