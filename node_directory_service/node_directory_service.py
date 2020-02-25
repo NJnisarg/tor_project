@@ -1,8 +1,9 @@
 import csv
 from typing import List
+
+from config.env_config import BASE_PROJECT_DIR
 from connection.node import Node
 from crypto.core_crypto import CoreCryptoRSA
-from config.env_config import BASE_PROJECT_DIR
 
 
 class NodeDirectoryService:

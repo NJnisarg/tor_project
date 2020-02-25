@@ -1,5 +1,6 @@
 from typing import Dict, Any
 
+from cell.cell import Cell
 from crypto.crypto_constants import CryptoConstants as CC
 
 
@@ -32,6 +33,8 @@ class RelayCellPayload:
         :param Length: The length of the payload
         :param Data: The Payload object
         """
+        self.FORMAT_STR = '=BHH4sH'+str(Cell.PAYLOAD_LEN - 11)+'s'
+        self.FORMAT_STR_ARR = ['RELAY_CMD', 'RECOGNIZED', 'StreamID', 'Digest', 'Length', 'Data']
         self.RELAY_CMD=RELAY_CMD
         self.RECOGNIZED=RECOGNIZED
         self.StreamID=StreamID
@@ -72,6 +75,8 @@ class RelayExtendPayload:
         HLEN(Client Handshake Data Len)     [2 bytes]
         HDATA(Client Handshake Data)         [HLEN bytes]
         """
+        self.FORMAT_STR = '=BBB'+str(LSLEN)+'s'+'HH'+str(HLEN)+'s'
+        self.FORMAT_STR_ARR = ['NSPEC', 'LSTYPE', 'LSLEN', 'LSPEC', 'HTYPE', 'HLEN', 'HDATA']
         self.NSPEC = 1  # We will always pass NSPEC = 1. If not ignore it and make it 1.
         self.LSTYPE = LSTYPE
         self.LSLEN = LSLEN
@@ -98,6 +103,8 @@ class RelayExtendedPayload:
         :param HLEN: The Length of the HDATA
         :param HDATA: The actual Handshake data. Contains the first half of Diffie Hellman Handshake
         """
+        self.FORMAT_STR = '=H' + str(HLEN) + 's'
+        self.FORMAT_STR_ARR = ['HLEN', 'HDATA']
         self.HLEN = HLEN
         self.HDATA = HDATA
 
@@ -111,14 +118,38 @@ class RelayBeginPayload:
     The class representing Relay Begin Cell's payload object
     """
 
-    def __init__(self, ADDRPORT: str, FLAGS: str):
+    def __init__(self, ADDRPORT: bytes, FLAGS: int):
+        # TODO: Add support for hostname and IPv6 formats as well
         """
         Constructor
-        :param ADDRPORT: The hostname, the IPv4 address or the IPv6 address of the host to connect to.
+        :param ADDRPORT: The hostname, the IPv4 address or the IPv6 address of the host to connect to. Currently we support only IPv4 address
         :param FLAGS: A set of options (32) to specify conditions for the creation of the payload. Check TOR Spec sec 6.2.
         """
+        self.FORMAT_STR = '=6sI'
+        self.FORMAT_STR_ARR = ['ADDRPORT', 'FLAGS']
         self.ADDRPORT = ADDRPORT
         self.FLAGS = FLAGS
 
+    def reprJSON(self) -> Dict[str, any]:
+        return vars(self)
+
+
+class RelayConnectedPayload:
+
+    """
+    The class representing Relay Connected Payload object
+    """
+
+    def __init__(self, IPv4: int, TTL: int):
+        # TODO: Add support for hostname and IPv6 formats as well
+        """
+        Constructor
+        :param IPv4: IPv4 address to which the connection was made 
+        :param TTL:A number of seconds (TTL) for which the address may be cached
+        """
+        self.FORMAT_STR='=II'
+        self.FORMAT_STR_ARR = ['IPv4', 'TTL']
+        self.IPv4=IPv4
+        self.TTL=TTL
     def reprJSON(self) -> Dict[str, any]:
         return vars(self)

@@ -1,4 +1,5 @@
 import os
+from typing import Dict
 
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
@@ -8,7 +9,6 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 from cell.control_cell import TapCHData
-from cell.serializers import EncoderDecoder
 from crypto.crypto_constants import CryptoConstants
 
 
@@ -109,21 +109,28 @@ class CoreCryptoRSA:
 
 			# Create the TAP_H_DATA object
 			padding_bytes = bytes(CryptoConstants.PK_PAD_LEN)
-			tap_h_data = TapCHData(EncoderDecoder.bytes_to_utf8str(padding_bytes), None, EncoderDecoder.bytes_to_utf8str(p), None)
+			tap_h_data = TapCHData(padding_bytes, None, p, None)
 
 		else:
 			k = bytearray(os.urandom(CryptoConstants.KEY_LEN))
 			m1 = message[0:CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN - CryptoConstants.KEY_LEN]
 			m2 = message[CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN - CryptoConstants.KEY_LEN:]
 			p1 = pk.encrypt(bytes(k + m1),
-							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(), label=None))
+							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA1()), algorithm=hashes.SHA1(), label=None))
 
 			nonce = bytes(CryptoConstants.KEY_LEN)  # all bytes are 0, nonce is the IV
 			cipher = Cipher(algorithms.AES(k), modes.CTR(nonce), backend=default_backend())
 			encryptor = cipher.encryptor()
 			p2 = encryptor.update(m2) + encryptor.finalize()
 
-			tap_h_data = TapCHData(EncoderDecoder.bytes_to_utf8str(nonce), EncoderDecoder.bytes_to_utf8str(k), EncoderDecoder.bytes_to_utf8str(p1), EncoderDecoder.bytes_to_utf8str(p2))
+			print(p1, len(p1))
+			print(p2, len(p2))
+			print(m2, len(m2))
+			# tap_h_data = TapCHData(bytearray(p1)[CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN:],
+			#                        bytearray(p1)[0:CryptoConstants.KEY_LEN],
+			#                        bytearray(p1)[CryptoConstants.KEY_LEN:(CryptoConstants.PK_ENC_LEN - CryptoConstants.PK_PAD_LEN)],
+			#                        p2)
+			tap_h_data = TapCHData(bytearray(p1)[0:CryptoConstants.PK_PAD_LEN], bytearray(p1)[CryptoConstants.PK_PAD_LEN:(CryptoConstants.PK_PAD_LEN+CryptoConstants.KEY_LEN)], bytearray(p1)[(CryptoConstants.PK_PAD_LEN+CryptoConstants.KEY_LEN):], p2)
 
 		return tap_h_data
 
@@ -141,18 +148,25 @@ class CoreCryptoRSA:
 			#                          algorithm=hashes.SHA256(), label=None))
 		else:
 			# Get the params of in bytes form
-			gx1 = EncoderDecoder.utf8str_to_bytes(h_data.GX1)
-			gx2 = EncoderDecoder.utf8str_to_bytes(h_data.GX2)
-			sym_key = EncoderDecoder.utf8str_to_bytes(h_data.SYMKEY)
-			padding_bytes = EncoderDecoder.utf8str_to_bytes(h_data.PADDING)
+			gx1 = h_data.GX1
+			gx2 = h_data.GX2
+			sym_key = h_data.SYMKEY
+			padding_bytes = h_data.PADDING
+			print(padding_bytes + sym_key + gx1)
+			print(sym_key)
+			print(gx1)
+			print(gx2)
 
 			# Decryption begins
-			km1 = pk.decrypt(gx1,
-							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA256()), algorithm=hashes.SHA256(),
+			km1 = pk.decrypt(padding_bytes + sym_key + gx1,
+							padding.OAEP(mgf=padding.MGF1(algorithm=hashes.SHA1()), algorithm=hashes.SHA1(),
 							label=None))
+			print(len(km1))
 			m1 = km1[len(sym_key):]
+			sym_key = km1[0:len(sym_key)]
 
-			cipher = Cipher(algorithms.AES(sym_key), modes.CTR(padding_bytes), backend=default_backend())
+			nonce = bytes(CryptoConstants.KEY_LEN)
+			cipher = Cipher(algorithms.AES(sym_key), modes.CTR(nonce), backend=default_backend())
 			decryptor = cipher.decryptor()
 			m2 = decryptor.update(gx2) + decryptor.finalize()
 
@@ -179,12 +193,12 @@ class CoreCryptoRSA:
 		key = hkdf.derive(message)
 
 		kdf_tor_dict = {
-			'KH': str(key[:CryptoConstants.HASH_LEN]),
-			'Df': str(key[CryptoConstants.HASH_LEN:(2 * CryptoConstants.HASH_LEN)]),
-			'Db': str(key[(2 * CryptoConstants.HASH_LEN):(3 * CryptoConstants.HASH_LEN)]),
-			'Kf': str(key[(3 * CryptoConstants.HASH_LEN):((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN)]),
-			'Kb': str(key[((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN):(
-						(3 * CryptoConstants.HASH_LEN) + (2 * CryptoConstants.KEY_LEN))])
+			'KH': key[:CryptoConstants.HASH_LEN],
+			'Df': key[CryptoConstants.HASH_LEN:(2 * CryptoConstants.HASH_LEN)],
+			'Db': key[(2 * CryptoConstants.HASH_LEN):(3 * CryptoConstants.HASH_LEN)],
+			'Kf': key[(3 * CryptoConstants.HASH_LEN):((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN)],
+			'Kb': key[((3 * CryptoConstants.HASH_LEN) + CryptoConstants.KEY_LEN):(
+						(3 * CryptoConstants.HASH_LEN) + (2 * CryptoConstants.KEY_LEN))]
 		}
 
 		# As of now, the function returns a dictionary due to certain problems with
@@ -221,12 +235,12 @@ class CoreCryptoDH:
 		"""
 		# Generate the private key ==> x
 		x = CoreCryptoDH.dh_parameters.generate_private_key()
-		x_bytes = x.private_bytes(encoding=serialization.Encoding.PEM, format=serialization.PrivateFormat.PKCS8,
+		x_bytes = x.private_bytes(encoding=serialization.Encoding.DER, format=serialization.PrivateFormat.PKCS8,
 								encryption_algorithm=serialization.NoEncryption())
 
 		# Also create the public key ==> gx
 		gx = x.public_key()
-		gx_bytes = gx.public_bytes(encoding=serialization.Encoding.PEM,
+		gx_bytes = gx.public_bytes(encoding=serialization.Encoding.DER,
 									format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
 		return x, x_bytes, gx, gx_bytes
@@ -239,11 +253,98 @@ class CoreCryptoDH:
 		:param x_bytes: The bytes representation of the private key of node itself
 		:return: Returns shared_key as bytes
 		"""
-		gy = serialization.load_pem_public_key(gy_bytes, backend=default_backend())
-		x = serialization.load_pem_private_key(x_bytes, backend=default_backend(), password=None)
+		gy = serialization.load_der_public_key(gy_bytes, backend=default_backend())
+		x = serialization.load_der_private_key(x_bytes, backend=default_backend(), password=None)
 		shared_key = x.exchange(gy)
 
 		return shared_key
+
+
+class CoreCryptoSymmetric:
+
+	@staticmethod
+	def encrypt_from_origin(message: bytes, kdf_dict1: Dict, kdf_dict2: Dict, kdf_dict3: Dict) -> bytes:
+		"""
+		The function encrypts a given message as bytes assuming the encryption start from the OP.
+		It carries out all the 3 layers of encryption from OP upto Last OR
+		:param message: The message in bytes to be encrypted
+		:param kdf_dict1: The KDF Dict containing KF ==> Forward Key for encryption. KF is expected to be in b64 encoded utf8 string
+		:param kdf_dict2: The KDF Dict containing KF ==> Forward Key for encryption. KF is expected to be in b64 encoded utf8 string
+		:param kdf_dict3: The KDF Dict containing KF ==> Forward Key for encryption. KF is expected to be in b64 encoded utf8 string
+		:return: Bytes encrypted. You need to convert it to string if you want. Please use bytes_to_utf8str function for conversion
+		"""
+		# The init vector for CTR mode
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		# The arr of dicts to iterate over
+		kdf_dict_arr = [kdf_dict1, kdf_dict2, kdf_dict3]
+		encryptor = None
+
+		# iteratively encrypting
+		for i in range(0, 3):
+			kf = kdf_dict_arr[i]['Kf']
+			cipher = Cipher(algorithms.AES(kf), modes.CTR(init_vector), backend=default_backend())
+			encryptor = cipher.encryptor()
+			message = encryptor.update(message)
+
+		# Finalize
+		message = message + encryptor.finalize()
+
+		# Return encrypted bytes
+		return message
+
+	@staticmethod
+	def decrypt_for_hop(message: bytes, kdf_dict: Dict) -> bytes:
+		"""
+		The function to decrypt a message for a given hop
+		:param message: The message to decrypt
+		:param kdf_dict: The dict kdf_dict
+		:return: The decryted bytes
+		"""
+
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		kf = kdf_dict['Kf']
+		cipher = Cipher(algorithms.AES(kf), modes.CTR(init_vector), backend=default_backend())
+		decryptor = cipher.decryptor()
+		message = decryptor.update(message) + decryptor.finalize()
+
+		return message
+
+	@staticmethod
+	def encrypt_for_hop(message: bytes, kdf_dict: Dict) -> bytes:
+		"""
+        The function to decrypt a message for a given hop
+        :param message: The message to decrypt
+        :param kdf_dict: The dict kdf_dict
+        :return: The decryted bytes
+        """
+
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		kb = kdf_dict['Kb']
+		cipher = Cipher(algorithms.AES(kb), modes.CTR(init_vector), backend=default_backend())
+		encryptor = cipher.encryptor()
+		message = encryptor.update(message) + encryptor.finalize()
+
+		return message
+
+
+	@staticmethod
+	def decrypt_from_origin(message: bytes, kdf_dict1: Dict, kdf_dict2: Dict, kdf_dict3: Dict) -> bytes:
+		init_vector = bytes(CryptoConstants.KEY_LEN)
+
+		kdf_dict_arr = [kdf_dict1, kdf_dict2, kdf_dict3]
+		decryptor = None
+		for i in range(2, -1, -1):
+			kf = kdf_dict_arr[i]['Kb']
+			cipher = Cipher(algorithms.AES(kf), modes.CTR(init_vector), backend=default_backend())
+			decryptor = cipher.decryptor()
+			message = decryptor.update(message)
+
+		message = message + decryptor.finalize()
+
+		return message
 
 
 class CoreCryptoMisc:
