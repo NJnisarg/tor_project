@@ -562,7 +562,7 @@ class Processor:
 		return cell
 
 	@staticmethod
-	def process_relay_data_cell(cell: Cell, kdf_dict: Dict) -> Cell:
+	def process_relay_data_cell(cell: Cell, kdf_dict: Dict):
 		"""
         Function for processing a relay data cell when it arrives in a router
         :param cell: The cell object for the relay data cell
@@ -583,23 +583,26 @@ class Processor:
 		dec_bytestring = CoreCryptoSymmetric.decrypt_for_hop( enc_bytestring, kdf_dict)[0]
 
 		# Adding encrypted values to the cell
-		cell.PAYLOAD.RECOGNIZED = enc_recognized
-		cell.PAYLOAD.StreamID = enc_stream_id
-		cell.PAYLOAD.Digest = enc_digest
-		cell.PAYLOAD.Length = enc_length
+		cell.PAYLOAD.RECOGNIZED = dec_recognized
+		cell.PAYLOAD.StreamID = dec_stream_id
+		cell.PAYLOAD.Digest = dec_digest
+		cell.PAYLOAD.Length = dec_length
 		cell.PAYLOAD.Data = dec_bytestring
 
-		http = dec_bytestring.decode("utf-8")
-
-		method = http.split(" ")[0]
-		url = http.split(" ")[1]
-
-		http_dict =
-		{
-			"method" : method,
-			"url" : url
-		}
 
 
 
-		return dec_recognized, http_dict, cell
+		if dec_recognized==0:
+			http = dec_bytestring.decode("utf-8")
+
+			method = http.split(" ")[0]
+			url = http.split(" ")[1]
+
+			http_dict ={
+				"method" : method,
+				"url" : url
+			}
+			return dec_recognized, http_dict, cell
+
+		else:
+			return dec_recognized, None, cell
