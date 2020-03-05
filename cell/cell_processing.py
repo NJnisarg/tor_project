@@ -580,3 +580,49 @@ class Processor:
 		cell.PAYLOAD.Data.TTL = dec_TTL
 
 		return cell
+
+	@staticmethod
+	def process_relay_data_cell(cell: Cell, kdf_dict: Dict):
+		"""
+        Function for processing a relay data cell when it arrives in a router
+        :param cell: The cell object for the relay data cell
+        :param kdf_dict: The key derivative function dictionary for the session key
+        """
+		# Take values to be encrypted from the cell
+		enc_recognized = cell.PAYLOAD.RECOGNIZED
+		enc_stream_id = cell.PAYLOAD.StreamID
+		enc_digest = cell.PAYLOAD.Digest
+		enc_length = cell.PAYLOAD.Length
+		enc_bytestring = cell.PAYLOAD.Data
+
+		# Add one layer of onion skin
+		dec_recognized = unpack('!H', CoreCryptoSymmetric.decrypt_for_hop(pack('!H', enc_recognized), kdf_dict))[0]
+		dec_stream_id = unpack('!H', CoreCryptoSymmetric.decrypt_for_hop(pack('!H', enc_stream_id), kdf_dict))[0]
+		dec_digest = CoreCryptoSymmetric.decrypt_for_hop(enc_digest, kdf_dict)
+		dec_length = unpack('!H', CoreCryptoSymmetric.decrypt_for_hop(pack('!H', enc_length), kdf_dict))[0]
+		dec_bytestring = CoreCryptoSymmetric.decrypt_for_hop( enc_bytestring, kdf_dict)[0]
+
+		# Adding encrypted values to the cell
+		cell.PAYLOAD.RECOGNIZED = dec_recognized
+		cell.PAYLOAD.StreamID = dec_stream_id
+		cell.PAYLOAD.Digest = dec_digest
+		cell.PAYLOAD.Length = dec_length
+		cell.PAYLOAD.Data = dec_bytestring
+
+
+
+
+		if dec_recognized==0:
+			http = dec_bytestring.decode("utf-8")
+
+			method = http.split(" ")[0]
+			url = http.split(" ")[1]
+
+			http_dict ={
+				"method" : method,
+				"url" : url
+			}
+			return dec_recognized, http_dict, cell
+
+		else:
+			return dec_recognized, None, cell
