@@ -49,7 +49,8 @@ class Circuit:
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED']: self.handle_relay_extended_cell,
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_EXTENDED2']: self.handle_relay_extended_cell,
 			RelayCellPayload.RELAY_CMD_ENUM['RELAY_BEGIN']: self.handle_relay_begin_cell,
-			RelayCellPayload.RELAY_CMD_ENUM['RELAY_CONNECTED']: self.handle_relay_connected_cell
+			RelayCellPayload.RELAY_CMD_ENUM['RELAY_CONNECTED']: self.handle_relay_connected_cell,
+			RelayCellPayload.RELAY_CMD_ENUM['RELAY_DATA']: self.handle_relay_data_cell
 		}  # A lookup for the function to be called based on the relay cell
 
 	def main(self):
@@ -187,3 +188,27 @@ class Circuit:
 		processed_connected_cell = Processor.process_connected_cell_router(parsed_connected_cell, self.session_key)
 		self.conn.sendall(ComplexStructEncoder.encode(processed_connected_cell))
 		return
+
+	def handle_relay_data_cell(self, cell_bytes, direction):
+		"""
+		Function for handling the data cell when received by a router
+		:param cell_bytes: The struct received by the router for the data cell
+		:param direction:
+		:return:
+		"""
+		parsed_relay_data_cell = Parser.parse_encoded_relay_data_cell(cell_bytes)
+		recognized, http_request_payload, relay_data_cell = Processor.process_relay_data_cell(parsed_relay_data_cell, self.session_key)
+		if recognized == 0 and direction == 0:
+			stream_id = relay_data_cell.PAYLOAD.StreamID
+			conn = self.stream_skts[stream_id]
+			conn.request(http_request_payload['method'], http_request_payload['url'])
+			res = conn.getresponse()
+			print(res.status, res.reason)
+			return
+		elif recognized != 0 and direction == 0:
+			print("Not for me! Pass it on")
+			self.skt.client_send_data(ComplexStructEncoder.encode(relay_data_cell))
+			return
+		else:
+			print("shouldn't reach here at this stage")
+			return
