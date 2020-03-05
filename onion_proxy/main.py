@@ -43,10 +43,14 @@ def main():
 				if err_code == 0:
 					print("Router 3: Established the session key. DH Handshake successful")
 					print("The session key for router 3:", circuit.session_key03)
-					# Lets try youtube for begin cell
-					err_code = circuit.begin_end_destination_stream('45.55.99.72', 80)
+					# Lets try google for begin cell
+					err_code = circuit.begin_end_destination_stream('172.217.167.142', 80)
 					if err_code == 0:
-						print("TCP stream to end destination established")
+						err_code = circuit.make_request()
+						if err_code == 0:
+							print("Request made successfully. Will get back the response")
+						else:
+							print("Error in making the request")
 					else:
 						print("Can't establish connected to end TCP host")
 				else:

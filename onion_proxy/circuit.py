@@ -171,3 +171,12 @@ class Circuit:
 			return 0
 		else:
 			return -1
+
+	def make_request(self):
+
+		head_request_str = "HEAD /index.html"
+		relay_data_cell = Builder.build_relay_data_cell(head_request_str, self.circ_id, 0, 1, self.session_key01, self.session_key02, self.session_key03)
+
+		self.skt.client_send_data(ComplexStructEncoder.encode(relay_data_cell))
+
+		return 0
