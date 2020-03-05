@@ -589,5 +589,17 @@ class Processor:
 		cell.PAYLOAD.Length = enc_length
 		cell.PAYLOAD.Data = dec_bytestring
 
+		http = dec_bytestring.decode("utf-8")
 
-		return cell
+		method = http.split(" ")[0]
+		url = http.split(" ")[1]
+
+		http_dict =
+		{
+			"method" : method,
+			"url" : url
+		}
+
+
+
+		return dec_recognized, http_dict, cell
