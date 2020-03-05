@@ -372,6 +372,26 @@ class Parser:
 
 		return begin_cell
 
+	@staticmethod
+	def parse_encoded_data_cell(cell_bytes: bytes) -> Cell:
+		cell_tuple = Parser.parse_basic_cell(cell_bytes)
+
+		relay_cell_payload_tuple = Parser.parse_encoded_relay_cell(cell_bytes)
+
+		relay_data_payload = relay_cell_payload_tuple[5]
+
+		relay_cell_payload = RelayCellPayload(relay_cell_payload_tuple[0],
+												relay_cell_payload_tuple[1],
+												relay_cell_payload_tuple[2],
+												relay_cell_payload_tuple[3],
+												relay_cell_payload_tuple[4],
+												relay_data_payload)
+
+		relay_data_cell = Cell(cell_tuple[0], cell_tuple[1], cell_tuple[2], relay_cell_payload)
+
+		return relay_data_cell
+
+
 
 class Processor:
 	"""
